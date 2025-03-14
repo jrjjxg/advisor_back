@@ -684,4 +684,136 @@ return questions.stream().map(q -> {
         // 再删除题目
         testQuestionMapper.deleteById(questionId);
     }
+
+    @Override
+    public Map<String, Integer> getTestCompletionCounts(List<String> testTypeIds) {
+        Map<String, Integer> resultMap = new HashMap<>();
+        
+        if (testTypeIds == null || testTypeIds.isEmpty()) {
+            return resultMap;
+        }
+        
+        // 查询每个测试类型的完成次数
+        for (String testTypeId : testTypeIds) {
+            Long countLong = testResultMapper.selectCount(
+                new LambdaQueryWrapper<TestResult>()
+                    .eq(TestResult::getTestTypeId, testTypeId)
+            );
+            // 将 Long 转换为 Integer（注意可能的溢出风险）
+            Integer count = countLong.intValue();
+            resultMap.put(testTypeId, count);
+        }
+        
+        return resultMap;
+    }
+
+    @Override
+    public TestTypeVO updateTestTypeImage(String testTypeId, String imageUrl) {
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        if (testType == null) {
+            return null;
+        }
+        
+        testType.setImageUrl(imageUrl);
+        testType.setUpdateTime(LocalDateTime.now());
+        testTypeMapper.updateById(testType);
+        
+        return convertToVO(testType);
+    }
+
+    @Override
+    @Transactional
+    public TestTypeVO saveTestType(TestTypeVO testTypeVO) {
+        // 1. 转换VO为实体
+        TestType testType = new TestType();
+        
+        // 如果是更新操作
+        if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
+            testType = testTypeMapper.selectById(testTypeVO.getId());
+            if (testType == null) {
+                return null; // 测试类型不存在
+            }
+        } else {
+            // 新增操作，生成ID
+            testType.setId(UUID.randomUUID().toString().replace("-", ""));
+            testType.setCreateTime(LocalDateTime.now());
+            testType.setStatus(1); // 默认启用
+        }
+        
+        // 设置属性
+        testType.setName(testTypeVO.getName());
+        testType.setDescription(testTypeVO.getDescription());
+        testType.setCategory(testTypeVO.getCategory());
+        if (testTypeVO.getImageUrl() != null && !testTypeVO.getImageUrl().isEmpty()) {
+            testType.setImageUrl(testTypeVO.getImageUrl());
+        }
+        testType.setUpdateTime(LocalDateTime.now());
+        
+        // 2. 保存或更新
+        if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
+            testTypeMapper.updateById(testType);
+        } else {
+            testTypeMapper.insert(testType);
+        }
+        
+        // 3. 返回保存后的对象
+        return convertToVO(testType);
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteTestType(String testTypeId) {
+        // 1. 检查测试类型是否存在
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        if (testType == null) {
+            return false;
+        }
+        
+        // 2. 检查是否有关联的测试题目
+        Long questionCount = testQuestionMapper.selectCount(
+            new LambdaQueryWrapper<TestQuestion>()
+                .eq(TestQuestion::getTestTypeId, testTypeId)
+        );
+        
+        if (questionCount > 0) {
+            // 2.1 删除关联的测试题目和选项
+            List<TestQuestion> questions = testQuestionMapper.selectList(
+                new LambdaQueryWrapper<TestQuestion>()
+                    .eq(TestQuestion::getTestTypeId, testTypeId)
+            );
+            
+            for (TestQuestion question : questions) {
+                // 删除选项
+                questionOptionMapper.delete(
+                    new LambdaQueryWrapper<QuestionOption>()
+                        .eq(QuestionOption::getQuestionId, question.getId())
+                );
+            }
+            
+            // 删除题目
+            testQuestionMapper.delete(
+                new LambdaQueryWrapper<TestQuestion>()
+                    .eq(TestQuestion::getTestTypeId, testTypeId)
+            );
+        }
+        
+        // 3. 检查是否有关联的测试结果
+        Long resultCount = testResultMapper.selectCount(
+            new LambdaQueryWrapper<TestResult>()
+                .eq(TestResult::getTestTypeId, testTypeId)
+        );
+        
+        if (resultCount > 0) {
+            // 可以选择物理删除或逻辑删除
+            // 这里采用逻辑删除：将状态设为禁用
+            testType.setStatus(0); // 禁用
+            testType.setUpdateTime(LocalDateTime.now());
+            testTypeMapper.updateById(testType);
+        } else {
+            // 没有关联结果，可以物理删除
+            testTypeMapper.deleteById(testTypeId);
+        }
+        
+        return true;
+    }
 }

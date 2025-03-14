@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
@@ -53,6 +54,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .and()
             .authorizeRequests()
                 .antMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 允许所有 OPTIONS 请求
+                .antMatchers("/uploads/**").permitAll() // 允许访问上传的文件
+                .antMatchers("/api/upload/**").permitAll() // 允许访问上传API
                 .antMatchers("/api/admin/register/**", "/api/admin/login").permitAll() // 后台管理的注册和登录
                 .antMatchers("/api/tests/**").permitAll() // 允许所有 /api/tests/** 路径 (移动端)
                 .antMatchers("/api/profile").permitAll() // 允许/api/profile路径

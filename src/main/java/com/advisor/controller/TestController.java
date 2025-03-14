@@ -8,6 +8,7 @@ import com.advisor.vo.TestTypeVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -137,6 +138,98 @@ public class TestController {
             return Result.success(true);
         } catch (Exception e) {
             return Result.fail("删除题目失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取测试完成人数
+     */
+    @GetMapping("/completion-counts")
+    public Result<Map<String, Integer>> getTestCompletionCounts(
+            @RequestParam(value = "testTypeId", required = false) List<String> testTypeIds) {
+        if (testTypeIds == null) {
+            testTypeIds = new ArrayList<>();
+        }
+        Map<String, Integer> counts = testService.getTestCompletionCounts(testTypeIds);
+        return Result.success(counts);
+    }
+
+    @PutMapping("/{testTypeId}/image")
+    public Result<TestTypeVO> updateTestTypeImage(
+            @PathVariable String testTypeId,
+            @RequestBody Map<String, String> payload) {
+        
+        String imageUrl = payload.get("imageUrl");
+        if (imageUrl == null || imageUrl.isEmpty()) {
+            return Result.fail("图片URL不能为空");
+        }
+        
+        TestTypeVO testType = testService.updateTestTypeImage(testTypeId, imageUrl);
+        if (testType == null) {
+            return Result.fail("测试类型不存在");
+        }
+        
+        return Result.success(testType);
+    }
+
+    // 添加测试类型
+    @PostMapping("/types")
+    public Result<TestTypeVO> addTestType(@RequestBody TestTypeVO testTypeVO) {
+        // 参数校验
+        if (testTypeVO.getName() == null || testTypeVO.getName().isEmpty()) {
+            return Result.fail("测试名称不能为空");
+        }
+        if (testTypeVO.getCategory() == null || testTypeVO.getCategory().isEmpty()) {
+            return Result.fail("测试分类不能为空");
+        }
+        
+        try {
+            TestTypeVO savedType = testService.saveTestType(testTypeVO);
+            return Result.success(savedType);
+        } catch (Exception e) {
+            return Result.fail("添加测试类型失败: " + e.getMessage());
+        }
+    }
+
+    // 更新测试类型
+    @PutMapping("/types/{testTypeId}")
+    public Result<TestTypeVO> updateTestType(
+            @PathVariable String testTypeId,
+            @RequestBody TestTypeVO testTypeVO) {
+        
+        // 设置ID
+        testTypeVO.setId(testTypeId);
+        
+        // 参数校验
+        if (testTypeVO.getName() == null || testTypeVO.getName().isEmpty()) {
+            return Result.fail("测试名称不能为空");
+        }
+        if (testTypeVO.getCategory() == null || testTypeVO.getCategory().isEmpty()) {
+            return Result.fail("测试分类不能为空");
+        }
+        
+        try {
+            TestTypeVO updatedType = testService.saveTestType(testTypeVO);
+            if (updatedType == null) {
+                return Result.fail("测试类型不存在");
+            }
+            return Result.success(updatedType);
+        } catch (Exception e) {
+            return Result.fail("更新测试类型失败: " + e.getMessage());
+        }
+    }
+
+    // 删除测试类型
+    @DeleteMapping("/types/{testTypeId}")
+    public Result<Boolean> deleteTestType(@PathVariable String testTypeId) {
+        try {
+            boolean success = testService.deleteTestType(testTypeId);
+            if (!success) {
+                return Result.fail("测试类型不存在或无法删除");
+            }
+            return Result.success(true);
+        } catch (Exception e) {
+            return Result.fail("删除测试类型失败: " + e.getMessage());
         }
     }
 }

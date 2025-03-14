@@ -15,6 +15,7 @@ public class TestType {
     private String name;
     private String description;
     private String icon;
+    private String imageUrl; // 新增字段
     private String category;
     private Integer timeMinutes;
     private Integer questionCount;

@@ -9,6 +9,7 @@ import com.advisor.vo.TestTypeVO;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 public interface TestService {
     // 获取所有测试类型
@@ -37,4 +38,16 @@ public interface TestService {
      * @param questionId 题目ID
      */
     void deleteQuestion(String questionId);
+    
+    // 获取测试完成人数
+    Map<String, Integer> getTestCompletionCounts(List<String> testTypeId);
+    
+    // 更新测试类型图片
+    TestTypeVO updateTestTypeImage(String testTypeId, String imageUrl);
+    
+    // 添加或更新测试类型
+    TestTypeVO saveTestType(TestTypeVO testTypeVO);
+    
+    // 删除测试类型
+    boolean deleteTestType(String testTypeId);
 }
