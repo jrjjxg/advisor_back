@@ -1,0 +1,49 @@
+package com.advisor.service.test;
+
+
+import com.advisor.vo.test.QuestionVO;
+import com.advisor.vo.test.TestResultVO;
+import com.advisor.vo.test.TestTypeVO;
+import java.util.List;
+import java.util.Map;
+
+public interface TestService {
+    // 获取所有测试类型
+    List<TestTypeVO> getAllTestTypes();
+    
+    // 获取测试详情
+    TestTypeVO getTestTypeDetail(String testTypeId);
+    
+    // 获取测试问题
+    List<QuestionVO> getTestQuestions(String testTypeId);
+    
+    // 提交测试答案并获取结果
+    TestResultVO submitTestAnswers(String userId, String testTypeId, Map<String, String> answers);
+    
+    // 获取用户的测试历史
+    List<TestResultVO> getUserTestHistory(String userId, String testTypeId);
+    
+    // 获取测试结果详情
+    TestResultVO getTestResultDetail(String resultId);
+    
+    // 添加或更新测试题目及其选项
+    QuestionVO saveQuestion(QuestionVO questionVO);
+    
+    /**
+     * 删除测试题目及其选项
+     * @param questionId 题目ID
+     */
+    void deleteQuestion(String questionId);
+    
+    // 获取测试完成人数
+    Map<String, Integer> getTestCompletionCounts(List<String> testTypeId);
+    
+    // 更新测试类型图片
+    TestTypeVO updateTestTypeImage(String testTypeId, String imageUrl);
+    
+    // 添加或更新测试类型
+    TestTypeVO saveTestType(TestTypeVO testTypeVO);
+    
+    // 删除测试类型
+    boolean deleteTestType(String testTypeId);
+}

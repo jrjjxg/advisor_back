@@ -1,12 +1,15 @@
 package com.advisor.service.impl;
 
-import com.advisor.entity.*;
+import com.advisor.entity.base.PsychologicalProfile;
+import com.advisor.entity.test.*;
 import com.advisor.mapper.*;
-import com.advisor.service.TestService;
-import com.advisor.vo.QuestionVO;
-import com.advisor.vo.TestResultVO;
-import com.advisor.vo.TestTypeVO;
-import com.advisor.vo.QuestionOptionVO;
+
+import com.advisor.mapper.test.*;
+import com.advisor.service.test.TestService;
+import com.advisor.vo.test.QuestionOptionVO;
+import com.advisor.vo.test.QuestionVO;
+import com.advisor.vo.test.TestResultVO;
+import com.advisor.vo.test.TestTypeVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,30 +25,30 @@ public class TestServiceImpl implements TestService {
 
     @Autowired
     private TestTypeMapper testTypeMapper;
-    
+
     @Autowired
     private TestQuestionMapper testQuestionMapper;
-    
+
     @Autowired
     private QuestionOptionMapper questionOptionMapper;
-    
+
     @Autowired
     private TestResultMapper testResultMapper;
-    
+
     @Autowired
     private UserAnswerMapper userAnswerMapper;
-    
+
     @Autowired
     private PsychologicalProfileMapper profileMapper;
 
     @Override
     public List<TestTypeVO> getAllTestTypes() {
         List<TestType> testTypes = testTypeMapper.selectList(
-            new LambdaQueryWrapper<TestType>()
-                .eq(TestType::getStatus, 1)
-                .orderByAsc(TestType::getCategory)
+                new LambdaQueryWrapper<TestType>()
+                        .eq(TestType::getStatus, 1)
+                        .orderByAsc(TestType::getCategory)
         );
-        
+
         return testTypes.stream().map(this::convertToVO).collect(Collectors.toList());
     }
 
@@ -62,48 +65,48 @@ public class TestServiceImpl implements TestService {
     public List<QuestionVO> getTestQuestions(String testTypeId) {
         // 查询测试问题
         List<TestQuestion> questions = testQuestionMapper.selectList(
-            new LambdaQueryWrapper<TestQuestion>()
-                .eq(TestQuestion::getTestTypeId, testTypeId)
-                .orderByAsc(TestQuestion::getOrderNum)
+                new LambdaQueryWrapper<TestQuestion>()
+                        .eq(TestQuestion::getTestTypeId, testTypeId)
+                        .orderByAsc(TestQuestion::getOrderNum)
         );
-        
+
         // 获取所有问题ID
         List<String> questionIds = questions.stream()
-            .map(TestQuestion::getId)
-            .collect(Collectors.toList());
-            
+                .map(TestQuestion::getId)
+                .collect(Collectors.toList());
+
         // 查询所有选项
         List<QuestionOption> options = new ArrayList<>();
         if (!questionIds.isEmpty()) {
             options = questionOptionMapper.selectList(
-                new LambdaQueryWrapper<QuestionOption>()
-                    .in(QuestionOption::getQuestionId, questionIds)
-                    .orderByAsc(QuestionOption::getOrderNum)
+                    new LambdaQueryWrapper<QuestionOption>()
+                            .in(QuestionOption::getQuestionId, questionIds)
+                            .orderByAsc(QuestionOption::getOrderNum)
             );
         }
-        
+
         // 按问题ID分组选项
         Map<String, List<QuestionOption>> optionMap = options.stream()
-            .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
-            
- // 构建问题VO
-return questions.stream().map(q -> {
-    QuestionVO vo = new QuestionVO();
-    BeanUtils.copyProperties(q, vo);
-    
-    List<QuestionOption> questionOptions = optionMap.getOrDefault(q.getId(), Collections.emptyList());
+                .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
 
-    // 将 QuestionOption 转换为 QuestionOptionVO
-    List<QuestionOptionVO> optionVOs = questionOptions.stream().map(option -> {
-        QuestionOptionVO optionVO = new QuestionOptionVO();
-        BeanUtils.copyProperties(option, optionVO);
-        return optionVO;
-    }).collect(Collectors.toList());
-    
-    vo.setOptions(optionVOs);
-    
-    return vo;
-}).collect(Collectors.toList());
+        // 构建问题VO
+        return questions.stream().map(q -> {
+            QuestionVO vo = new QuestionVO();
+            BeanUtils.copyProperties(q, vo);
+
+            List<QuestionOption> questionOptions = optionMap.getOrDefault(q.getId(), Collections.emptyList());
+
+            // 将 QuestionOption 转换为 QuestionOptionVO
+            List<QuestionOptionVO> optionVOs = questionOptions.stream().map(option -> {
+                QuestionOptionVO optionVO = new QuestionOptionVO();
+                BeanUtils.copyProperties(option, optionVO);
+                return optionVO;
+            }).collect(Collectors.toList());
+
+            vo.setOptions(optionVOs);
+
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -117,72 +120,72 @@ return questions.stream().map(q -> {
         testResult.setStartTime(LocalDateTime.now().minusMinutes(10));
         testResult.setEndTime(LocalDateTime.now());
         testResult.setCreateTime(LocalDateTime.now()); // 添加创建时间
-        
+
         // 2. 计算得分并保存答案
         int totalScore = 0;
         List<UserAnswer> userAnswers = new ArrayList<UserAnswer>();
-        
+
         // 获取该测试类型的所有问题
         List<TestQuestion> questions = testQuestionMapper.selectList(
-            new LambdaQueryWrapper<TestQuestion>()
-                .eq(TestQuestion::getTestTypeId, testTypeId)
-                .orderByAsc(TestQuestion::getOrderNum)
+                new LambdaQueryWrapper<TestQuestion>()
+                        .eq(TestQuestion::getTestTypeId, testTypeId)
+                        .orderByAsc(TestQuestion::getOrderNum)
         );
-        
+
         // 创建问题ID到问题对象的映射
         Map<String, TestQuestion> questionMap = new HashMap<>();
         for (int i = 0; i < questions.size(); i++) {
             // 假设前端使用 q1, q2, ... 作为问题ID
             questionMap.put("q" + (i + 1), questions.get(i));
         }
-        
+
         // 获取所有问题的选项
         List<String> questionIds = questions.stream()
-            .map(TestQuestion::getId)
-            .collect(Collectors.toList());
-            
+                .map(TestQuestion::getId)
+                .collect(Collectors.toList());
+
         List<QuestionOption> allOptions = questionOptionMapper.selectList(
-            new LambdaQueryWrapper<QuestionOption>()
-                .in(QuestionOption::getQuestionId, questionIds)
-                .orderByAsc(QuestionOption::getOrderNum)
+                new LambdaQueryWrapper<QuestionOption>()
+                        .in(QuestionOption::getQuestionId, questionIds)
+                        .orderByAsc(QuestionOption::getOrderNum)
         );
-        
+
         // 创建问题ID到选项列表的映射
         Map<String, List<QuestionOption>> optionsMap = allOptions.stream()
-            .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
-        
+                .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
+
         for (Map.Entry<String, String> entry : answers.entrySet()) {
             String frontendQuestionId = entry.getKey(); // 如 q1, q2, ...
             String optionIndexStr = entry.getValue(); // 如 0, 1, 2, ...
-            
+
             // 获取实际问题对象
             TestQuestion question = questionMap.get(frontendQuestionId);
             if (question == null) {
                 System.out.println("Question not found for frontendQuestionId: " + frontendQuestionId);
                 continue;
             }
-            
+
             // 获取问题的所有选项
             List<QuestionOption> options = optionsMap.get(question.getId());
             if (options == null || options.isEmpty()) {
                 System.out.println("No options found for questionId: " + question.getId());
                 continue;
             }
-            
+
             // 根据选项索引获取选项
             int optionIndex = Integer.parseInt(optionIndexStr);
             if (optionIndex < 0 || optionIndex >= options.size()) {
                 System.out.println("Invalid option index: " + optionIndex + " for questionId: " + question.getId());
                 continue;
             }
-            
+
             QuestionOption option = options.get(optionIndex);
-            
+
             // 查询选项得分
             if (option != null) {
                 System.out.println("Option found - Score: " + option.getScore());
                 totalScore += option.getScore();
-                
+
                 // 创建用户答案记录
                 UserAnswer userAnswer = new UserAnswer();
                 userAnswer.setId(UUID.randomUUID().toString());
@@ -190,74 +193,74 @@ return questions.stream().map(q -> {
                 userAnswer.setQuestionId(question.getId());
                 userAnswer.setOptionId(option.getId());
                 userAnswer.setScore(option.getScore());
-                
+
                 userAnswers.add(userAnswer);
             } else {
                 System.out.println("Option not found for id: " + option.getId());
             }
         }
-        
+
         System.out.println("Final total score: " + totalScore);
-        
+
         // 3. 设置最终得分和结果
         testResult.setTotalScore(totalScore);
-        
+
         // 获取测试类型名称
         TestType testType = testTypeMapper.selectById(testTypeId);
         String testTypeName = testType != null ? testType.getName() : testTypeId;
-        
+
         // 计算结果级别
         String resultLevel = calculateResultLevel(testTypeName, totalScore);
         testResult.setResultLevel(resultLevel);
-        
+
         // 生成结果描述
         String resultDescription = generateResultDescription(testTypeName, resultLevel, totalScore);
         testResult.setResultDescription(resultDescription);
-        
+
         // 生成建议
         String suggestions = generateSuggestions(testTypeName, resultLevel);
         testResult.setSuggestions(suggestions);
-        
+
         // 4. 保存测试结果和用户答案
         testResultMapper.insert(testResult);
         for (UserAnswer userAnswer : userAnswers) {
             userAnswerMapper.insert(userAnswer);
         }
-        
+
         // 5. 更新用户心理档案
 //        updatePsychologicalProfile(userId, testTypeName, resultLevel, totalScore);
-        
+
         // 6. 返回结果
         TestResultVO resultVO = new TestResultVO();
         BeanUtils.copyProperties(testResult, resultVO);
         resultVO.setTestTypeName(testTypeName);
-        
+
         return resultVO;
     }
 
     @Override
     public List<TestResultVO> getUserTestHistory(String userId, String testTypeId) {
         LambdaQueryWrapper<TestResult> wrapper = new LambdaQueryWrapper<TestResult>()
-            .eq(TestResult::getUserId, userId);
-            
+                .eq(TestResult::getUserId, userId);
+
         if (testTypeId != null && !testTypeId.isEmpty()) {
             wrapper.eq(TestResult::getTestTypeId, testTypeId);
         }
-        
+
         wrapper.orderByDesc(TestResult::getCreateTime);
-        
+
         List<TestResult> results = testResultMapper.selectList(wrapper);
-        
+
         return results.stream().map(r -> {
             TestResultVO vo = new TestResultVO();
             BeanUtils.copyProperties(r, vo);
-            
+
             // 获取测试类型名称
             TestType testType = testTypeMapper.selectById(r.getTestTypeId());
             if (testType != null) {
                 vo.setTestTypeName(testType.getName());
             }
-            
+
             return vo;
         }).collect(Collectors.toList());
     }
@@ -268,71 +271,71 @@ return questions.stream().map(q -> {
         if (result == null) {
             return null;
         }
-        
+
         TestResultVO vo = new TestResultVO();
         BeanUtils.copyProperties(result, vo);
-        
+
         // 获取测试类型名称
         TestType testType = testTypeMapper.selectById(result.getTestTypeId());
         if (testType != null) {
             vo.setTestTypeName(testType.getName());
         }
-        
+
         // 获取用户答案详情
         List<UserAnswer> userAnswers = userAnswerMapper.selectList(
-            new LambdaQueryWrapper<UserAnswer>()
-                .eq(UserAnswer::getTestResultId, resultId)
+                new LambdaQueryWrapper<UserAnswer>()
+                        .eq(UserAnswer::getTestResultId, resultId)
         );
-        
+
         // 获取问题和选项详情
         if (!userAnswers.isEmpty()) {
             List<String> questionIds = userAnswers.stream()
-                .map(UserAnswer::getQuestionId)
-                .collect(Collectors.toList());
-                
+                    .map(UserAnswer::getQuestionId)
+                    .collect(Collectors.toList());
+
             List<TestQuestion> questions = testQuestionMapper.selectList(
-                new LambdaQueryWrapper<TestQuestion>()
-                    .in(TestQuestion::getId, questionIds)
+                    new LambdaQueryWrapper<TestQuestion>()
+                            .in(TestQuestion::getId, questionIds)
             );
-            
+
             Map<String, TestQuestion> questionMap = questions.stream()
-                .collect(Collectors.toMap(TestQuestion::getId, q -> q));
-                
+                    .collect(Collectors.toMap(TestQuestion::getId, q -> q));
+
             List<String> optionIds = userAnswers.stream()
-                .map(UserAnswer::getOptionId)
-                .collect(Collectors.toList());
-                
+                    .map(UserAnswer::getOptionId)
+                    .collect(Collectors.toList());
+
             List<QuestionOption> options = questionOptionMapper.selectList(
-                new LambdaQueryWrapper<QuestionOption>()
-                    .in(QuestionOption::getId, optionIds)
+                    new LambdaQueryWrapper<QuestionOption>()
+                            .in(QuestionOption::getId, optionIds)
             );
-            
+
             Map<String, QuestionOption> optionMap = options.stream()
-                .collect(Collectors.toMap(QuestionOption::getId, o -> o));
-                
+                    .collect(Collectors.toMap(QuestionOption::getId, o -> o));
+
             // 构建答案详情
             List<Map<String, Object>> answerDetails = userAnswers.stream().map(ua -> {
                 Map<String, Object> detail = new HashMap<>();
-                
+
                 TestQuestion question = questionMap.get(ua.getQuestionId());
                 if (question != null) {
                     detail.put("questionId", question.getId());
                     detail.put("questionContent", question.getContent());
                 }
-                
+
                 QuestionOption option = optionMap.get(ua.getOptionId());
                 if (option != null) {
                     detail.put("optionId", option.getId());
                     detail.put("optionContent", option.getContent());
                     detail.put("score", option.getScore());
                 }
-                
+
                 return detail;
             }).collect(Collectors.toList());
-            
+
             vo.setAnswerDetails(answerDetails);
         }
-        
+
         return vo;
     }
 
@@ -352,21 +355,21 @@ return questions.stream().map(q -> {
             question.setId(UUID.randomUUID().toString().replace("-", ""));
             question.setCreateTime(LocalDateTime.now());
         }
-        
+
         // 设置题目属性
         question.setTestTypeId(questionVO.getTestTypeId());
         question.setContent(questionVO.getContent());
         question.setOrderNum(questionVO.getOrderNum());
         question.setOptionType(questionVO.getOptionType());
         question.setUpdateTime(LocalDateTime.now());
-        
+
         // 保存或更新题目
         if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
             testQuestionMapper.updateById(question);
         } else {
             testQuestionMapper.insert(question);
         }
-        
+
         // 2. 处理选项
         // 如果是更新，先删除原有选项
         if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
@@ -374,7 +377,7 @@ return questions.stream().map(q -> {
             wrapper.eq(QuestionOption::getQuestionId, question.getId());
             questionOptionMapper.delete(wrapper);
         }
-        
+
         // 添加新选项
         if (questionVO.getOptions() != null && !questionVO.getOptions().isEmpty()) {
             for (int i = 0; i < questionVO.getOptions().size(); i++) {
@@ -390,7 +393,7 @@ return questions.stream().map(q -> {
                 questionOptionMapper.insert(option);
             }
         }
-        
+
         // 3. 返回保存后的完整题目信息
         return getQuestionById(question.getId());
     }
@@ -403,23 +406,23 @@ return questions.stream().map(q -> {
         if (question == null) {
             return null;
         }
-        
+
         QuestionVO questionVO = new QuestionVO();
         BeanUtils.copyProperties(question, questionVO);
-        
+
         // 获取选项
         LambdaQueryWrapper<QuestionOption> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(QuestionOption::getQuestionId, questionId);
         wrapper.orderByAsc(QuestionOption::getOrderNum);
         List<QuestionOption> options = questionOptionMapper.selectList(wrapper);
-        
+
         // 将 QuestionOption 转换为 QuestionOptionVO
         List<QuestionOptionVO> optionVOs = options.stream().map(option -> {
             QuestionOptionVO optionVO = new QuestionOptionVO();
             BeanUtils.copyProperties(option, optionVO);
             return optionVO;
         }).collect(Collectors.toList());
-        
+
         questionVO.setOptions(optionVOs);
         return questionVO;
     }
@@ -430,7 +433,7 @@ return questions.stream().map(q -> {
         BeanUtils.copyProperties(testType, vo);
         return vo;
     }
-    
+
     // 根据测试类型和分数计算结果级别
     private String calculateResultLevel(String testTypeName, int score) {
         // 根据不同测试类型和分数范围确定级别
@@ -457,15 +460,15 @@ return questions.stream().map(q -> {
                 else return "高";
         }
     }
-    
+
     // 生成结果描述
     private String generateResultDescription(String testTypeName, String level, int score) {
         // 根据测试类型和级别生成描述
         StringBuilder description = new StringBuilder();
-        
+
         description.append("您的").append(testTypeName).append("测试得分为").append(score).append("分，");
         description.append("结果显示您目前处于").append(level).append("状态。");
-        
+
         switch (testTypeName) {
             case "PHQ-9":
                 if ("正常".equals(level)) {
@@ -484,15 +487,15 @@ return questions.stream().map(q -> {
             default:
                 description.append("详细分析请参考下方建议。");
         }
-        
+
         return description.toString();
     }
-    
- // 生成建议
+
+    // 生成建议
     private String generateSuggestions(String testTypeName, String level) {
         // 根据测试类型和级别生成建议
         StringBuilder suggestions = new StringBuilder();
-        
+
         if ("正常".equals(level) || "低".equals(level)) {
             suggestions.append("1. 继续保持良好的生活习惯和积极的心态。\n");
             suggestions.append("2. 定期进行自我评估，关注心理健康。\n");
@@ -510,25 +513,25 @@ return questions.stream().map(q -> {
             suggestions.append("4. 学习应对压力的技巧，如认知重构、放松训练等。\n");
             suggestions.append("5. 规律作息，健康饮食，适当运动。");
         }
-        
+
         return suggestions.toString();
     }
-    
+
     // 更新用户心理档案
     private void updatePsychologicalProfile(String userId, String testTypeName, String resultLevel, int score) {
         // 查询用户是否已有心理档案
         PsychologicalProfile profile = profileMapper.selectOne(
-            new LambdaQueryWrapper<PsychologicalProfile>()
-                .eq(PsychologicalProfile::getUserId, userId)
+                new LambdaQueryWrapper<PsychologicalProfile>()
+                        .eq(PsychologicalProfile::getUserId, userId)
         );
-        
+
         // 如果没有则创建新档案
         if (profile == null) {
             profile = new PsychologicalProfile();
             profile.setId(UUID.randomUUID().toString());
             profile.setUserId(userId);
         }
-        
+
         // 根据测试类型更新相应指标
         switch (testTypeName) {
             case "PHQ-9":
@@ -548,10 +551,10 @@ return questions.stream().map(q -> {
                 profile.setSocialAdaptability(convertScoreToLevel(score));
                 break;
         }
-        
+
         // 更新综合评估
         updateProfileSummary(profile);
-        
+
         // 保存或更新档案
         if (profile.getId() == null) {
             profileMapper.insert(profile);
@@ -559,7 +562,7 @@ return questions.stream().map(q -> {
             profileMapper.updateById(profile);
         }
     }
-    
+
     // 将原始分数转换为1-10的等级
     private Integer convertScoreToLevel(int score) {
         // 简单转换逻辑，实际应根据不同量表的分数范围调整
@@ -574,11 +577,11 @@ return questions.stream().map(q -> {
         else if (score <= 45) return 9;
         else return 10;
     }
-    
+
     // 更新档案综合评估
     private void updateProfileSummary(PsychologicalProfile profile) {
         StringBuilder summary = new StringBuilder("心理健康综合评估：\n");
-        
+
         // 评估情绪状态
         if (profile.getDepressionLevel() != null) {
             summary.append("抑郁水平：");
@@ -590,7 +593,7 @@ return questions.stream().map(q -> {
                 summary.append("较高，建议关注情绪健康。\n");
             }
         }
-        
+
         // 评估焦虑状态
         if (profile.getAnxietyLevel() != null) {
             summary.append("焦虑水平：");
@@ -602,7 +605,7 @@ return questions.stream().map(q -> {
                 summary.append("较高，建议学习放松技巧。\n");
             }
         }
-        
+
         // 评估压力状态
         if (profile.getStressLevel() != null) {
             summary.append("压力水平：");
@@ -614,7 +617,7 @@ return questions.stream().map(q -> {
                 summary.append("较高，建议学习压力管理技巧。\n");
             }
         }
-        
+
         // 评估社交适应性
         if (profile.getSocialAdaptability() != null) {
             summary.append("社交适应性：");
@@ -626,7 +629,7 @@ return questions.stream().map(q -> {
                 summary.append("有待提高，建议增加社交活动。\n");
             }
         }
-        
+
         // 评估情绪稳定性
         if (profile.getEmotionalStability() != null) {
             summary.append("情绪稳定性：");
@@ -638,36 +641,36 @@ return questions.stream().map(q -> {
                 summary.append("有待提高，建议学习情绪管理技巧。\n");
             }
         }
-        
+
         // 设置风险因素
         StringBuilder riskFactors = new StringBuilder();
         if ((profile.getDepressionLevel() != null && profile.getDepressionLevel() > 6) ||
-            (profile.getAnxietyLevel() != null && profile.getAnxietyLevel() > 6)) {
+                (profile.getAnxietyLevel() != null && profile.getAnxietyLevel() > 6)) {
             riskFactors.append("情绪健康风险较高；");
         }
-        
+
         if (profile.getStressLevel() != null && profile.getStressLevel() > 6) {
             riskFactors.append("压力水平较高；");
         }
-        
+
         if (profile.getSocialAdaptability() != null && profile.getSocialAdaptability() < 4) {
             riskFactors.append("社交适应性较低；");
         }
-        
+
         // 设置心理优势
         StringBuilder strengths = new StringBuilder();
         if (profile.getEmotionalStability() != null && profile.getEmotionalStability() >= 7) {
             strengths.append("情绪稳定性强；");
         }
-        
+
         if (profile.getSocialAdaptability() != null && profile.getSocialAdaptability() >= 7) {
             strengths.append("社交能力良好；");
         }
-        
+
         if (profile.getStressLevel() != null && profile.getStressLevel() <= 3) {
             strengths.append("压力管理能力强；");
         }
-        
+
         profile.setSummary(summary.toString());
         profile.setRiskFactors(riskFactors.length() > 0 ? riskFactors.toString() : "暂无明显风险因素");
         profile.setStrengths(strengths.length() > 0 ? strengths.toString() : "需要进行更多测评");
@@ -680,7 +683,7 @@ return questions.stream().map(q -> {
         LambdaQueryWrapper<QuestionOption> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(QuestionOption::getQuestionId, questionId);
         questionOptionMapper.delete(wrapper);
-        
+
         // 再删除题目
         testQuestionMapper.deleteById(questionId);
     }
@@ -688,22 +691,22 @@ return questions.stream().map(q -> {
     @Override
     public Map<String, Integer> getTestCompletionCounts(List<String> testTypeIds) {
         Map<String, Integer> resultMap = new HashMap<>();
-        
+
         if (testTypeIds == null || testTypeIds.isEmpty()) {
             return resultMap;
         }
-        
+
         // 查询每个测试类型的完成次数
         for (String testTypeId : testTypeIds) {
             Long countLong = testResultMapper.selectCount(
-                new LambdaQueryWrapper<TestResult>()
-                    .eq(TestResult::getTestTypeId, testTypeId)
+                    new LambdaQueryWrapper<TestResult>()
+                            .eq(TestResult::getTestTypeId, testTypeId)
             );
             // 将 Long 转换为 Integer（注意可能的溢出风险）
             Integer count = countLong.intValue();
             resultMap.put(testTypeId, count);
         }
-        
+
         return resultMap;
     }
 
@@ -713,11 +716,11 @@ return questions.stream().map(q -> {
         if (testType == null) {
             return null;
         }
-        
+
         testType.setImageUrl(imageUrl);
         testType.setUpdateTime(LocalDateTime.now());
         testTypeMapper.updateById(testType);
-        
+
         return convertToVO(testType);
     }
 
@@ -726,7 +729,7 @@ return questions.stream().map(q -> {
     public TestTypeVO saveTestType(TestTypeVO testTypeVO) {
         // 1. 转换VO为实体
         TestType testType = new TestType();
-        
+
         // 如果是更新操作
         if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
             testType = testTypeMapper.selectById(testTypeVO.getId());
@@ -739,7 +742,7 @@ return questions.stream().map(q -> {
             testType.setCreateTime(LocalDateTime.now());
             testType.setStatus(1); // 默认启用
         }
-        
+
         // 设置属性
         testType.setName(testTypeVO.getName());
         testType.setDescription(testTypeVO.getDescription());
@@ -748,14 +751,14 @@ return questions.stream().map(q -> {
             testType.setImageUrl(testTypeVO.getImageUrl());
         }
         testType.setUpdateTime(LocalDateTime.now());
-        
+
         // 2. 保存或更新
         if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
             testTypeMapper.updateById(testType);
         } else {
             testTypeMapper.insert(testType);
         }
-        
+
         // 3. 返回保存后的对象
         return convertToVO(testType);
     }
@@ -768,41 +771,41 @@ return questions.stream().map(q -> {
         if (testType == null) {
             return false;
         }
-        
+
         // 2. 检查是否有关联的测试题目
         Long questionCount = testQuestionMapper.selectCount(
-            new LambdaQueryWrapper<TestQuestion>()
-                .eq(TestQuestion::getTestTypeId, testTypeId)
+                new LambdaQueryWrapper<TestQuestion>()
+                        .eq(TestQuestion::getTestTypeId, testTypeId)
         );
-        
+
         if (questionCount > 0) {
             // 2.1 删除关联的测试题目和选项
             List<TestQuestion> questions = testQuestionMapper.selectList(
-                new LambdaQueryWrapper<TestQuestion>()
-                    .eq(TestQuestion::getTestTypeId, testTypeId)
+                    new LambdaQueryWrapper<TestQuestion>()
+                            .eq(TestQuestion::getTestTypeId, testTypeId)
             );
-            
+
             for (TestQuestion question : questions) {
                 // 删除选项
                 questionOptionMapper.delete(
-                    new LambdaQueryWrapper<QuestionOption>()
-                        .eq(QuestionOption::getQuestionId, question.getId())
+                        new LambdaQueryWrapper<QuestionOption>()
+                                .eq(QuestionOption::getQuestionId, question.getId())
                 );
             }
-            
+
             // 删除题目
             testQuestionMapper.delete(
-                new LambdaQueryWrapper<TestQuestion>()
-                    .eq(TestQuestion::getTestTypeId, testTypeId)
+                    new LambdaQueryWrapper<TestQuestion>()
+                            .eq(TestQuestion::getTestTypeId, testTypeId)
             );
         }
-        
+
         // 3. 检查是否有关联的测试结果
         Long resultCount = testResultMapper.selectCount(
-            new LambdaQueryWrapper<TestResult>()
-                .eq(TestResult::getTestTypeId, testTypeId)
+                new LambdaQueryWrapper<TestResult>()
+                        .eq(TestResult::getTestTypeId, testTypeId)
         );
-        
+
         if (resultCount > 0) {
             // 可以选择物理删除或逻辑删除
             // 这里采用逻辑删除：将状态设为禁用
@@ -813,7 +816,7 @@ return questions.stream().map(q -> {
             // 没有关联结果，可以物理删除
             testTypeMapper.deleteById(testTypeId);
         }
-        
+
         return true;
     }
 }

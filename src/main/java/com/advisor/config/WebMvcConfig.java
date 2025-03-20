@@ -21,24 +21,24 @@ public class WebMvcConfig implements WebMvcConfigurer {
         if (!uploadDir.exists()) {
             uploadDir.mkdirs();
         }
-        
+
         // 处理路径格式（特别是Windows系统）
         String path = uploadDir.getAbsolutePath().replace("\\", "/");
         if (!path.endsWith("/")) {
             path = path + "/";
         }
-        
+
         // 配置静态资源访问
         String os = System.getProperty("os.name").toLowerCase();
         String resourceLocation = os.contains("win") ? "file:///" + path : "file:" + path;
-        
+
         System.out.println("上传文件实际路径: " + path);
         System.out.println("资源映射位置: " + resourceLocation);
-        
+
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(resourceLocation);
     }
-    
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")

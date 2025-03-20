@@ -1,11 +1,12 @@
 package com.advisor.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
-import com.advisor.entity.AdminUser;
-import com.advisor.entity.VerificationCode;
-import com.advisor.mapper.AdminUserMapper;
-import com.advisor.mapper.VerificationCodeMapper;
-import com.advisor.service.AdminUserService;
+
+import com.advisor.entity.base.AdminUser;
+import com.advisor.entity.base.VerificationCode;
+import com.advisor.mapper.base.AdminUserMapper;
+import com.advisor.mapper.base.VerificationCodeMapper;
+import com.advisor.service.base.AdminUserService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.javamail.JavaMailSender;

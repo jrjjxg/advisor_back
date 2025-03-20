@@ -1,6 +1,6 @@
 package com.advisor.mapper;
 
-import com.advisor.entity.PsychologicalProfile;
+import com.advisor.entity.base.PsychologicalProfile;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
