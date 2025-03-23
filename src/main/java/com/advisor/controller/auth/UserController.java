@@ -25,6 +25,7 @@ public class UserController {
     public UserController(FileService fileService) {
         this.fileService = fileService;
     }
+    
     @PostMapping("/register/send-code")
     public Result<?> sendVerificationCode(@RequestBody EmailRequest emailRequest) {
         userService.sendVerificationCode(emailRequest.getEmail());

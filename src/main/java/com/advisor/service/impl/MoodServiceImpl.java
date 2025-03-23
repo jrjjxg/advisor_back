@@ -2,6 +2,7 @@ package com.advisor.service.impl;
 
 import com.advisor.dto.MoodRecordDTO;
 
+import com.advisor.dto.MoodShareCardDTO;
 import com.advisor.entity.mood.MoodRecord;
 import com.advisor.entity.mood.MoodRecordTag;
 import com.advisor.entity.mood.MoodTag;
@@ -186,4 +187,100 @@ public class MoodServiceImpl implements MoodService {
             .map(MoodTag::getName)
             .collect(Collectors.toList());
     }
+
+    @Override
+    public MoodShareCardDTO generateMoodShareCard(String userId, LocalDate startDate, LocalDate endDate) {
+    // 获取日期范围内的情绪记录
+    List<MoodRecordDTO> moodRecords = getUserMoodByDateRange(userId, startDate, endDate);
+    
+    // 如果没有记录，返回空数据
+    if (moodRecords.isEmpty()) {
+        return MoodShareCardDTO.builder()
+                .userId(userId)
+                .startDate(startDate)
+                .endDate(endDate)
+                .totalRecords(0)
+                .averageMoodScore(0.0)
+                .dominantEmotion("未知")
+                .emotionDistribution(Collections.emptyList())
+                .moodTrend(Collections.emptyList())
+                .build();
+    }
+    
+    // 计算平均情绪强度 (假设您的DTO中有intensity字段而不是moodScore)
+    double averageMoodScore = moodRecords.stream()
+            .mapToInt(MoodRecordDTO::getIntensity)  // 使用getIntensity替代getMoodScore
+            .average()
+            .orElse(0);
+    
+    // 统计情绪类型分布
+    Map<String, Long> emotionCounts = moodRecords.stream()
+            .collect(Collectors.groupingBy(MoodRecordDTO::getEmotionType, Collectors.counting()));
+    
+    // 找出主要情绪
+    String dominantEmotion = emotionCounts.entrySet().stream()
+            .max(Map.Entry.comparingByValue())
+            .map(Map.Entry::getKey)
+            .orElse("未知");
+    
+    // 情绪类型对应的颜色
+    Map<String, String> emotionColors = Map.of(
+            "快乐/愉悦", "#4ADE80",
+            "平静/满足", "#60A5FA",
+            "焦虑/紧张", "#F97316",
+            "悲伤/低落", "#8B5CF6",
+            "愤怒/烦躁", "#EF4444",
+            "疲惫/无力", "#A855F7",
+            "中性/平淡", "#94A3B8"
+    );
+    
+    // 创建情绪分布数据
+    List<MoodShareCardDTO.EmotionDistributionDTO> emotionDistribution = emotionCounts.entrySet().stream()
+            .map(entry -> {
+                String emotion = entry.getKey();
+                long count = entry.getValue();
+                double percentage = (double) count / moodRecords.size() * 100;
+                
+                return MoodShareCardDTO.EmotionDistributionDTO.builder()
+                        .name(emotion)
+                        .percentage(percentage)
+                        .color(emotionColors.getOrDefault(emotion, "#94A3B8"))
+                        .build();
+            })
+            .collect(Collectors.toList());
+    
+    // 按日期分组，计算每天的平均情绪强度
+    Map<LocalDate, Double> dailyAverages = moodRecords.stream()
+            .collect(Collectors.groupingBy(
+                    record -> record.getCreateTime().toLocalDate(),
+                    Collectors.averagingInt(MoodRecordDTO::getIntensity)  // 使用getIntensity替代getMoodScore
+            ));
+    
+    // 创建情绪趋势数据
+    List<MoodShareCardDTO.DailyMoodDTO> moodTrend = new ArrayList<>();
+    LocalDate currentDate = startDate;
+    
+    while (!currentDate.isAfter(endDate)) {
+        Double averageScore = dailyAverages.getOrDefault(currentDate, 0.0);
+        
+        moodTrend.add(MoodShareCardDTO.DailyMoodDTO.builder()
+                .date(currentDate)
+                .value(averageScore)
+                .build());
+        
+        currentDate = currentDate.plusDays(1);
+    }
+    
+    // 构建并返回分享卡片数据
+    return MoodShareCardDTO.builder()
+            .userId(userId)
+            .startDate(startDate)
+            .endDate(endDate)
+            .totalRecords(moodRecords.size())
+            .averageMoodScore(averageMoodScore)
+            .dominantEmotion(dominantEmotion)
+            .emotionDistribution(emotionDistribution)
+            .moodTrend(moodTrend)
+            .build();
+}
 }

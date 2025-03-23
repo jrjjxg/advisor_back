@@ -1,6 +1,7 @@
 package com.advisor.service.mood;
 
 import com.advisor.dto.MoodRecordDTO;
+import com.advisor.dto.MoodShareCardDTO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 import java.time.LocalDate;
@@ -22,4 +23,6 @@ public interface MoodService {
     List<String> getAllEmotionTypes();
     
     List<String> getAllTags();
+    
+    MoodShareCardDTO generateMoodShareCard(String userId, LocalDate startDate, LocalDate endDate);
 }

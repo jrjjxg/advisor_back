@@ -94,3 +94,18 @@ file:
 jwt:
   secret: your_jwt_secret_key_here_should_be_very_long_and_secure_12345678901234567890
   expiration: 86400000 # 24小时，单位毫秒
+
+
+# 七牛云配置
+qiniu:
+  access-key: 94BvdJExQ963UsZRcc2rMNoIfoZb1-1CfCrsjoEg
+  secret-key: 3Bpbjy6Cn68P9Sglbm4KSv32MgzJuFEbUqXzmulx
+  bucket: myai-video
+  domain: http://stefccaiw.hb-bkt.clouddn.com
+
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: https://api.deepseek.com
+      model-name: deepseek-chat

@@ -2,6 +2,7 @@ package com.advisor.controller.mood;
 
 import com.advisor.common.Result;
 import com.advisor.dto.MoodRecordDTO;
+import com.advisor.dto.MoodShareCardDTO;
 import com.advisor.service.mood.MoodService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +29,7 @@ public class MoodController {
     
     @PostMapping
     public Result<MoodRecordDTO> createMoodRecord(
-            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader("userId") String userId,
             @RequestBody MoodRecordDTO moodDTO) {
         userId = getEffectiveUserId(userId);
         moodDTO.setUserId(userId);
@@ -50,7 +51,7 @@ public class MoodController {
     
     @GetMapping("/history")
     public Result<Page<MoodRecordDTO>> getUserMoodHistory(
-            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader("userId") String userId,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
         userId = getEffectiveUserId(userId);
@@ -60,7 +61,7 @@ public class MoodController {
     
     @GetMapping("/date-range")
     public Result<List<MoodRecordDTO>> getUserMoodByDateRange(
-            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader("userId") String userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         userId = getEffectiveUserId(userId);
@@ -70,7 +71,7 @@ public class MoodController {
     
     @GetMapping("/analytics")  // 改回GET请求
     public Result<Map<String, Object>> getMoodAnalytics(
-            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestHeader("userId") String userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         
@@ -102,5 +103,16 @@ public class MoodController {
         // 标签不需要用户ID，但为了接口一致性，仍然接收这个参数
         List<String> tags = moodService.getAllTags();
         return Result.success(tags);
+    }
+    
+    @GetMapping("/share-card/generate")
+    public Result<MoodShareCardDTO> generateMoodShareCard(
+            @RequestHeader(value = "userId", required = false) String userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        
+        userId = getEffectiveUserId(userId);
+        MoodShareCardDTO shareCard = moodService.generateMoodShareCard(userId, startDate, endDate);
+        return Result.success(shareCard);
     }
 }
