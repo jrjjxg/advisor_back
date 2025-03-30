@@ -4,6 +4,8 @@ package com.advisor.service.test;
 import com.advisor.vo.test.QuestionVO;
 import com.advisor.vo.test.TestResultVO;
 import com.advisor.vo.test.TestTypeVO;
+import com.advisor.vo.test.OptionTemplateVO;
+
 import java.util.List;
 import java.util.Map;
 
@@ -46,4 +48,19 @@ public interface TestService {
     
     // 删除测试类型
     boolean deleteTestType(String testTypeId);
+
+    // 获取所有选项模板
+    List<OptionTemplateVO> getAllOptionTemplates();
+
+    // 获取选项模板详情
+    OptionTemplateVO getOptionTemplateDetail(String templateId);
+
+    // 保存选项模板
+    OptionTemplateVO saveOptionTemplate(OptionTemplateVO templateVO);
+
+    // 删除选项模板
+    boolean deleteOptionTemplate(String templateId);
+
+    // 使用模板创建问题
+    QuestionVO createQuestionWithTemplate(QuestionVO questionVO, String templateId);
 }

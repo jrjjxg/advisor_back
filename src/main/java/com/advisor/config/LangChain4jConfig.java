@@ -1,31 +1,25 @@
 package com.advisor.config;
 
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import lombok.Data;
-import org.springframework.beans.factory.annotation.Value;
+import dev.langchain4j.model.dashscope.QwenChatModel;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 
-@Data
 @Configuration
 public class LangChain4jConfig {
 
-    @Value("${openai.chat.base-url}")
-    private String baseUrl;
-
-    @Value("${openai.chat.model:deepseek-chat}")
-    private String model;
-
-    @Value("${openai.chat.api-key}")
+    @Value("${dashscope.api-key}")
     private String apiKey;
 
+    @Value("${dashscope.model-name:qwen-max}")
+    private String modelName;
+
     @Bean
-    OpenAiChatModel chatLanguageModel() {
-        return OpenAiChatModel.builder()
-                .baseUrl(baseUrl)
-                .modelName(model)
+    public QwenChatModel qwenChatModel() {
+        return QwenChatModel.builder()
                 .apiKey(apiKey)
+                .modelName(modelName)
+                .maxTokens(4096)
                 .build();
     }
-
 }

@@ -44,8 +44,8 @@ spring:
     args: --add-opens java.base/java.lang.invoke=ALL-UNNAMED
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 50MB
+      max-request-size: 50MB
 
 mybatis-plus:
   mapper-locations: classpath:/mapper/**/*.xml
@@ -95,7 +95,6 @@ jwt:
   secret: your_jwt_secret_key_here_should_be_very_long_and_secure_12345678901234567890
   expiration: 86400000 # 24小时，单位毫秒
 
-
 # 七牛云配置
 qiniu:
   access-key: 94BvdJExQ963UsZRcc2rMNoIfoZb1-1CfCrsjoEg
@@ -103,9 +102,7 @@ qiniu:
   bucket: myai-video
   domain: http://stefccaiw.hb-bkt.clouddn.com
 
-langchain4j:
-  open-ai:
-    chat-model:
-      api-key: ${DEEPSEEK_API_KEY}
-      base-url: https://api.deepseek.com
-      model-name: deepseek-chat
+# 添加到您现有的application.yml
+dashscope:
+  api-key: ${ALI_AI_KEY}
+  model-name: qwen-max

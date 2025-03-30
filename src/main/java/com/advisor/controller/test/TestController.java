@@ -5,6 +5,7 @@ import com.advisor.service.test.TestService;
 import com.advisor.vo.test.QuestionVO;
 import com.advisor.vo.test.TestResultVO;
 import com.advisor.vo.test.TestTypeVO;
+import com.advisor.vo.test.OptionTemplateVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,7 +36,7 @@ public class TestController {
      * Java 类型会自动转换为对应的 JSON 类型：
      * String → JSON 字符串
      * Integer → JSON 数字
-     */ 
+     */
 
     /**
      * Result<List<TestTypeVO>>: 返回类型
@@ -59,7 +60,7 @@ public class TestController {
         }
         return Result.success(testType);
     }
-    
+
     /**
      * 获取测试问题
      */
@@ -68,7 +69,7 @@ public class TestController {
         List<QuestionVO> questions = testService.getTestQuestions(testTypeId);
         return Result.success(questions);
     }
-    
+
     /**
      * 提交测试答案
      */
@@ -80,7 +81,7 @@ public class TestController {
         TestResultVO result = testService.submitTestAnswers(userId, testTypeId, answers);
         return Result.success(result);
     }
-    
+
     /**
      * 获取用户测试历史
      */
@@ -91,7 +92,7 @@ public class TestController {
         List<TestResultVO> history = testService.getUserTestHistory(userId, testTypeId);
         return Result.success(history);
     }
-    
+
     /**
      * 获取测试结果详情
      */
@@ -119,7 +120,7 @@ public class TestController {
         if (questionVO.getOptions() == null || questionVO.getOptions().isEmpty()) {
             return Result.fail("题目选项不能为空");
         }
-        
+
         try {
             QuestionVO savedQuestion = testService.saveQuestion(questionVO);
             return Result.success(savedQuestion);
@@ -158,17 +159,17 @@ public class TestController {
     public Result<TestTypeVO> updateTestTypeImage(
             @PathVariable String testTypeId,
             @RequestBody Map<String, String> payload) {
-        
+
         String imageUrl = payload.get("imageUrl");
         if (imageUrl == null || imageUrl.isEmpty()) {
             return Result.fail("图片URL不能为空");
         }
-        
+
         TestTypeVO testType = testService.updateTestTypeImage(testTypeId, imageUrl);
         if (testType == null) {
             return Result.fail("测试类型不存在");
         }
-        
+
         return Result.success(testType);
     }
 
@@ -182,7 +183,7 @@ public class TestController {
         if (testTypeVO.getCategory() == null || testTypeVO.getCategory().isEmpty()) {
             return Result.fail("测试分类不能为空");
         }
-        
+
         try {
             TestTypeVO savedType = testService.saveTestType(testTypeVO);
             return Result.success(savedType);
@@ -196,10 +197,10 @@ public class TestController {
     public Result<TestTypeVO> updateTestType(
             @PathVariable String testTypeId,
             @RequestBody TestTypeVO testTypeVO) {
-        
+
         // 设置ID
         testTypeVO.setId(testTypeId);
-        
+
         // 参数校验
         if (testTypeVO.getName() == null || testTypeVO.getName().isEmpty()) {
             return Result.fail("测试名称不能为空");
@@ -207,7 +208,7 @@ public class TestController {
         if (testTypeVO.getCategory() == null || testTypeVO.getCategory().isEmpty()) {
             return Result.fail("测试分类不能为空");
         }
-        
+
         try {
             TestTypeVO updatedType = testService.saveTestType(testTypeVO);
             if (updatedType == null) {
@@ -230,6 +231,77 @@ public class TestController {
             return Result.success(true);
         } catch (Exception e) {
             return Result.fail("删除测试类型失败: " + e.getMessage());
+        }
+    }
+
+    // 获取所有选项模板
+    @GetMapping("/option-templates")
+    public Result<List<OptionTemplateVO>> getAllOptionTemplates() {
+        List<OptionTemplateVO> templates = testService.getAllOptionTemplates();
+        return Result.success(templates);
+    }
+
+    // 获取选项模板详情
+    @GetMapping("/option-templates/{templateId}")
+    public Result<OptionTemplateVO> getOptionTemplateDetail(@PathVariable String templateId) {
+        OptionTemplateVO template = testService.getOptionTemplateDetail(templateId);
+        if (template == null) {
+            return Result.fail("模板不存在");
+        }
+        return Result.success(template);
+    }
+
+    // 保存选项模板
+    @PostMapping("/option-templates")
+    public Result<OptionTemplateVO> saveOptionTemplate(@RequestBody OptionTemplateVO templateVO) {
+        // 参数校验
+        if (templateVO.getName() == null || templateVO.getName().isEmpty()) {
+            return Result.fail("模板名称不能为空");
+        }
+        if (templateVO.getOptions() == null || templateVO.getOptions().isEmpty()) {
+            return Result.fail("模板选项不能为空");
+        }
+
+        try {
+            OptionTemplateVO savedTemplate = testService.saveOptionTemplate(templateVO);
+            return Result.success(savedTemplate);
+        } catch (Exception e) {
+            return Result.fail("保存模板失败: " + e.getMessage());
+        }
+    }
+
+    // 删除选项模板
+    @DeleteMapping("/option-templates/{templateId}")
+    public Result<Boolean> deleteOptionTemplate(@PathVariable String templateId) {
+        try {
+            boolean success = testService.deleteOptionTemplate(templateId);
+            if (!success) {
+                return Result.fail("模板已被使用，无法删除");
+            }
+            return Result.success(true);
+        } catch (Exception e) {
+            return Result.fail("删除模板失败: " + e.getMessage());
+        }
+    }
+
+    // 使用模板创建题目
+    @PostMapping("/questions/with-template/{templateId}")
+    public Result<QuestionVO> createQuestionWithTemplate(
+            @PathVariable String templateId,
+            @RequestBody QuestionVO questionVO) {
+        // 参数校验
+        if (questionVO.getTestTypeId() == null || questionVO.getTestTypeId().isEmpty()) {
+            return Result.fail("测试类型ID不能为空");
+        }
+        if (questionVO.getContent() == null || questionVO.getContent().isEmpty()) {
+            return Result.fail("题目内容不能为空");
+        }
+
+        try {
+            QuestionVO savedQuestion = testService.createQuestionWithTemplate(questionVO, templateId);
+            return Result.success(savedQuestion);
+        } catch (Exception e) {
+            return Result.fail("创建题目失败: " + e.getMessage());
         }
     }
 }

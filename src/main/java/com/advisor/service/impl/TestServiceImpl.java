@@ -5,11 +5,9 @@ import com.advisor.entity.test.*;
 import com.advisor.mapper.*;
 
 import com.advisor.mapper.test.*;
+import com.advisor.service.test.TestScoreLevelService;
 import com.advisor.service.test.TestService;
-import com.advisor.vo.test.QuestionOptionVO;
-import com.advisor.vo.test.QuestionVO;
-import com.advisor.vo.test.TestResultVO;
-import com.advisor.vo.test.TestTypeVO;
+import com.advisor.vo.test.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +39,15 @@ public class TestServiceImpl implements TestService {
     @Autowired
     private PsychologicalProfileMapper profileMapper;
 
+    @Autowired
+    private OptionTemplateMapper optionTemplateMapper;
+
+    @Autowired
+    private TemplateOptionMapper templateOptionMapper;
+
+    @Autowired
+    private TestScoreLevelService testScoreLevelService;
+
     @Override
     public List<TestTypeVO> getAllTestTypes() {
         List<TestType> testTypes = testTypeMapper.selectList(
@@ -70,41 +77,45 @@ public class TestServiceImpl implements TestService {
                         .orderByAsc(TestQuestion::getOrderNum)
         );
 
-        // 获取所有问题ID
-        List<String> questionIds = questions.stream()
-                .map(TestQuestion::getId)
+        // 获取所有使用的模板ID
+        List<String> templateIds = questions.stream()
+                .map(TestQuestion::getOptionTemplateId)
+                .filter(id -> id != null && !id.isEmpty())
+                .distinct()
                 .collect(Collectors.toList());
 
-        // 查询所有选项
-        List<QuestionOption> options = new ArrayList<>();
-        if (!questionIds.isEmpty()) {
-            options = questionOptionMapper.selectList(
-                    new LambdaQueryWrapper<QuestionOption>()
-                            .in(QuestionOption::getQuestionId, questionIds)
-                            .orderByAsc(QuestionOption::getOrderNum)
+        // 查询所有模板选项
+        Map<String, List<TemplateOption>> templateOptionsMap = new HashMap<>();
+        if (!templateIds.isEmpty()) {
+            List<TemplateOption> allTemplateOptions = templateOptionMapper.selectList(
+                    new LambdaQueryWrapper<TemplateOption>()
+                            .in(TemplateOption::getTemplateId, templateIds)
+                            .orderByAsc(TemplateOption::getOrderNum)
             );
+            
+            // 按模板ID分组选项
+            templateOptionsMap = allTemplateOptions.stream()
+                    .collect(Collectors.groupingBy(TemplateOption::getTemplateId));
         }
-
-        // 按问题ID分组选项
-        Map<String, List<QuestionOption>> optionMap = options.stream()
-                .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
 
         // 构建问题VO
         return questions.stream().map(q -> {
             QuestionVO vo = new QuestionVO();
             BeanUtils.copyProperties(q, vo);
 
-            List<QuestionOption> questionOptions = optionMap.getOrDefault(q.getId(), Collections.emptyList());
+            // 获取模板选项
+            List<TemplateOption> templateOptions = templateOptionsMap
+                    .getOrDefault(q.getOptionTemplateId(), Collections.emptyList());
 
-            // 将 QuestionOption 转换为 QuestionOptionVO
-            List<QuestionOptionVO> optionVOs = questionOptions.stream().map(option -> {
+            // 将模板选项转换为问题选项VO
+            List<QuestionOptionVO> optionVOs = templateOptions.stream().map(option -> {
                 QuestionOptionVO optionVO = new QuestionOptionVO();
-                BeanUtils.copyProperties(option, optionVO);
+                optionVO.setContent(option.getContent());
+                optionVO.setScore(option.getScore());
                 return optionVO;
             }).collect(Collectors.toList());
 
             vo.setOptions(optionVOs);
-
             return vo;
         }).collect(Collectors.toList());
     }
@@ -210,15 +221,15 @@ public class TestServiceImpl implements TestService {
         String testTypeName = testType != null ? testType.getName() : testTypeId;
 
         // 计算结果级别
-        String resultLevel = calculateResultLevel(testTypeName, totalScore);
+        String resultLevel = calculateResultLevel(testTypeId, totalScore);
         testResult.setResultLevel(resultLevel);
 
         // 生成结果描述
-        String resultDescription = generateResultDescription(testTypeName, resultLevel, totalScore);
+        String resultDescription = generateResultDescription(testTypeId, resultLevel, totalScore);
         testResult.setResultDescription(resultDescription);
 
         // 生成建议
-        String suggestions = generateSuggestions(testTypeName, resultLevel);
+        String suggestions = generateSuggestions(testTypeId, resultLevel);
         testResult.setSuggestions(suggestions);
 
         // 4. 保存测试结果和用户答案
@@ -345,13 +356,11 @@ public class TestServiceImpl implements TestService {
         // 1. 保存题目基本信息
         TestQuestion question = new TestQuestion();
         if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
-            // 更新已有题目
             question = testQuestionMapper.selectById(questionVO.getId());
             if (question == null) {
                 throw new RuntimeException("题目不存在");
             }
         } else {
-            // 新增题目，生成ID
             question.setId(UUID.randomUUID().toString().replace("-", ""));
             question.setCreateTime(LocalDateTime.now());
         }
@@ -361,6 +370,7 @@ public class TestServiceImpl implements TestService {
         question.setContent(questionVO.getContent());
         question.setOrderNum(questionVO.getOrderNum());
         question.setOptionType(questionVO.getOptionType());
+        question.setOptionTemplateId(questionVO.getOptionTemplateId()); // 设置模板ID
         question.setUpdateTime(LocalDateTime.now());
 
         // 保存或更新题目
@@ -368,34 +378,22 @@ public class TestServiceImpl implements TestService {
             testQuestionMapper.updateById(question);
         } else {
             testQuestionMapper.insert(question);
+            // 更新测试类型的题目数量
+            updateTestTypeQuestionCount(question.getTestTypeId(), 1);
         }
 
-        // 2. 处理选项
-        // 如果是更新，先删除原有选项
-        if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
-            LambdaQueryWrapper<QuestionOption> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(QuestionOption::getQuestionId, question.getId());
-            questionOptionMapper.delete(wrapper);
-        }
-
-        // 添加新选项
-        if (questionVO.getOptions() != null && !questionVO.getOptions().isEmpty()) {
-            for (int i = 0; i < questionVO.getOptions().size(); i++) {
-                QuestionOptionVO optionVO = questionVO.getOptions().get(i);
-                QuestionOption option = new QuestionOption();
-                option.setId(UUID.randomUUID().toString().replace("-", ""));
-                option.setQuestionId(question.getId());
-                option.setContent(optionVO.getContent());
-                option.setScore(optionVO.getScore());
-                option.setOrderNum(i + 1); // 设置选项顺序
-                option.setCreateTime(LocalDateTime.now());
-                option.setUpdateTime(LocalDateTime.now());
-                questionOptionMapper.insert(option);
-            }
-        }
-
-        // 3. 返回保存后的完整题目信息
+        // 返回保存后的完整题目信息
         return getQuestionById(question.getId());
+    }
+
+    // 辅助方法：更新测试类型的题目数量
+    private void updateTestTypeQuestionCount(String testTypeId, int delta) {
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        if (testType != null) {
+            testType.setQuestionCount(Math.max(0, testType.getQuestionCount() + delta));
+            testType.setUpdateTime(LocalDateTime.now());
+            testTypeMapper.updateById(testType);
+        }
     }
 
     /**
@@ -429,14 +427,36 @@ public class TestServiceImpl implements TestService {
 
     // 辅助方法：将实体转换为VO
     private TestTypeVO convertToVO(TestType testType) {
+        if (testType == null) {
+            return null;
+        }
+        
         TestTypeVO vo = new TestTypeVO();
         BeanUtils.copyProperties(testType, vo);
+        
+        // 获取测试完成人数
+        Integer testCount = testResultMapper.selectCount(
+            new LambdaQueryWrapper<TestResult>()
+                .eq(TestResult::getTestTypeId, testType.getId())
+        ).intValue();
+        vo.setTestCount(testCount);
+        
         return vo;
     }
 
     // 根据测试类型和分数计算结果级别
-    private String calculateResultLevel(String testTypeName, int score) {
-        // 根据不同测试类型和分数范围确定级别
+    private String calculateResultLevel(String testTypeId, int score) {
+        // 首先尝试从配置中获取级别
+        TestScoreLevel level = testScoreLevelService.findLevelByScore(testTypeId, score);
+        
+        if (level != null) {
+            return level.getLevelName();
+        }
+        
+        // 如果没有配置，使用默认逻辑（向下兼容）
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        String testTypeName = testType != null ? testType.getName() : testTypeId;
+        
         switch (testTypeName) {
             case "PHQ-9":
                 if (score <= 4) return "正常";
@@ -462,13 +482,25 @@ public class TestServiceImpl implements TestService {
     }
 
     // 生成结果描述
-    private String generateResultDescription(String testTypeName, String level, int score) {
-        // 根据测试类型和级别生成描述
+    private String generateResultDescription(String testTypeId, String level, int score) {
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        String testTypeName = testType != null ? testType.getName() : testTypeId;
+        
+        // 首先尝试从配置中获取描述
+        TestScoreLevel scoreLevel = testScoreLevelService.findLevelByScore(testTypeId, score);
+        if (scoreLevel != null && scoreLevel.getDescription() != null) {
+            // 替换描述中的变量
+            return scoreLevel.getDescription()
+                    .replace("{score}", String.valueOf(score))
+                    .replace("{level}", level)
+                    .replace("{testName}", testTypeName);
+        }
+        
+        // 如果没有配置，使用默认逻辑（向下兼容）
         StringBuilder description = new StringBuilder();
-
         description.append("您的").append(testTypeName).append("测试得分为").append(score).append("分，");
         description.append("结果显示您目前处于").append(level).append("状态。");
-
+        
         switch (testTypeName) {
             case "PHQ-9":
                 if ("正常".equals(level)) {
@@ -487,15 +519,29 @@ public class TestServiceImpl implements TestService {
             default:
                 description.append("详细分析请参考下方建议。");
         }
-
+        
         return description.toString();
     }
 
     // 生成建议
-    private String generateSuggestions(String testTypeName, String level) {
-        // 根据测试类型和级别生成建议
+    private String generateSuggestions(String testTypeId, String level) {
+        TestType testType = testTypeMapper.selectById(testTypeId);
+        String testTypeName = testType != null ? testType.getName() : testTypeId;
+        
+        // 首先尝试从配置中获取建议
+        List<TestScoreLevel> levels = testScoreLevelService.getLevelsByTestType(testTypeId);
+        for (TestScoreLevel scoreLevel : levels) {
+            if (scoreLevel.getLevelName().equals(level) && scoreLevel.getSuggestions() != null) {
+                // 替换建议中的变量
+                return scoreLevel.getSuggestions()
+                        .replace("{level}", level)
+                        .replace("{testName}", testTypeName);
+            }
+        }
+        
+        // 如果没有配置，使用默认逻辑（向下兼容）
         StringBuilder suggestions = new StringBuilder();
-
+        
         if ("正常".equals(level) || "低".equals(level)) {
             suggestions.append("1. 继续保持良好的生活习惯和积极的心态。\n");
             suggestions.append("2. 定期进行自我评估，关注心理健康。\n");
@@ -513,7 +559,7 @@ public class TestServiceImpl implements TestService {
             suggestions.append("4. 学习应对压力的技巧，如认知重构、放松训练等。\n");
             suggestions.append("5. 规律作息，健康饮食，适当运动。");
         }
-
+        
         return suggestions.toString();
     }
 
@@ -679,13 +725,14 @@ public class TestServiceImpl implements TestService {
     @Override
     @Transactional
     public void deleteQuestion(String questionId) {
-        // 先删除选项
-        LambdaQueryWrapper<QuestionOption> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(QuestionOption::getQuestionId, questionId);
-        questionOptionMapper.delete(wrapper);
-
-        // 再删除题目
-        testQuestionMapper.deleteById(questionId);
+        TestQuestion question = testQuestionMapper.selectById(questionId);
+        if (question != null) {
+            // 删除题目
+            testQuestionMapper.deleteById(questionId);
+            
+            // 更新测试类型的题目数量
+            updateTestTypeQuestionCount(question.getTestTypeId(), -1);
+        }
     }
 
     @Override
@@ -727,39 +774,41 @@ public class TestServiceImpl implements TestService {
     @Override
     @Transactional
     public TestTypeVO saveTestType(TestTypeVO testTypeVO) {
-        // 1. 转换VO为实体
         TestType testType = new TestType();
-
+        
         // 如果是更新操作
         if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
             testType = testTypeMapper.selectById(testTypeVO.getId());
             if (testType == null) {
-                return null; // 测试类型不存在
+                return null;
             }
         } else {
             // 新增操作，生成ID
             testType.setId(UUID.randomUUID().toString().replace("-", ""));
             testType.setCreateTime(LocalDateTime.now());
             testType.setStatus(1); // 默认启用
+            testType.setQuestionCount(0); // 设置初始题目数量为0
         }
-
+        
         // 设置属性
         testType.setName(testTypeVO.getName());
         testType.setDescription(testTypeVO.getDescription());
         testType.setCategory(testTypeVO.getCategory());
+        testType.setIcon(testTypeVO.getIcon());
+        testType.setTimeMinutes(testTypeVO.getTimeMinutes());
         if (testTypeVO.getImageUrl() != null && !testTypeVO.getImageUrl().isEmpty()) {
             testType.setImageUrl(testTypeVO.getImageUrl());
         }
         testType.setUpdateTime(LocalDateTime.now());
-
-        // 2. 保存或更新
+        
+        // 保存或更新
         if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {
             testTypeMapper.updateById(testType);
         } else {
             testTypeMapper.insert(testType);
         }
-
-        // 3. 返回保存后的对象
+        
+        // 返回保存后的对象
         return convertToVO(testType);
     }
 
@@ -818,5 +867,154 @@ public class TestServiceImpl implements TestService {
         }
 
         return true;
+    }
+
+    @Override
+    public List<OptionTemplateVO> getAllOptionTemplates() {
+        List<OptionTemplate> templates = optionTemplateMapper.selectList(
+                new LambdaQueryWrapper<OptionTemplate>()
+                        .orderByDesc(OptionTemplate::getCreateTime)
+        );
+        
+        return templates.stream().map(this::convertToTemplateVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public OptionTemplateVO getOptionTemplateDetail(String templateId) {
+        OptionTemplate template = optionTemplateMapper.selectById(templateId);
+        if (template == null) {
+            return null;
+        }
+        
+        // 查询模板的选项
+        List<TemplateOption> options = templateOptionMapper.selectList(
+                new LambdaQueryWrapper<TemplateOption>()
+                        .eq(TemplateOption::getTemplateId, templateId)
+                        .orderByAsc(TemplateOption::getOrderNum)
+        );
+        
+        OptionTemplateVO vo = new OptionTemplateVO();
+        BeanUtils.copyProperties(template, vo);
+        
+        // 转换选项
+        List<QuestionOptionVO> optionVOs = options.stream().map(option -> {
+            QuestionOptionVO optionVO = new QuestionOptionVO();
+            optionVO.setContent(option.getContent());
+            optionVO.setScore(option.getScore());
+            // 模板选项不需要ID，因为会在使用时重新生成
+            return optionVO;
+        }).collect(Collectors.toList());
+        
+        vo.setOptions(optionVOs);
+        
+        return vo;
+    }
+
+    @Override
+    @Transactional
+    public OptionTemplateVO saveOptionTemplate(OptionTemplateVO templateVO) {
+        // 1. 保存模板基本信息
+        OptionTemplate template = new OptionTemplate();
+        if (templateVO.getId() != null && !templateVO.getId().isEmpty()) {
+            // 更新模板
+            template = optionTemplateMapper.selectById(templateVO.getId());
+            if (template == null) {
+                throw new RuntimeException("选项模板不存在");
+            }
+        } else {
+            // 新增模板，生成ID
+            template.setId(UUID.randomUUID().toString().replace("-", ""));
+            template.setCreateTime(LocalDateTime.now());
+        }
+        
+        // 设置模板属性
+        template.setName(templateVO.getName());
+        template.setDescription(templateVO.getDescription());
+        template.setUpdateTime(LocalDateTime.now());
+        
+        // 保存或更新模板
+        if (templateVO.getId() != null && !templateVO.getId().isEmpty()) {
+            optionTemplateMapper.updateById(template);
+        } else {
+            optionTemplateMapper.insert(template);
+        }
+        
+        // 2. 处理选项
+        // 如果是更新，先删除原有选项
+        if (templateVO.getId() != null && !templateVO.getId().isEmpty()) {
+            LambdaQueryWrapper<TemplateOption> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(TemplateOption::getTemplateId, template.getId());
+            templateOptionMapper.delete(wrapper);
+        }
+        
+        // 添加新选项
+        if (templateVO.getOptions() != null && !templateVO.getOptions().isEmpty()) {
+            for (int i = 0; i < templateVO.getOptions().size(); i++) {
+                QuestionOptionVO optionVO = templateVO.getOptions().get(i);
+                TemplateOption option = new TemplateOption();
+                option.setId(UUID.randomUUID().toString().replace("-", ""));
+                option.setTemplateId(template.getId());
+                option.setContent(optionVO.getContent());
+                option.setScore(optionVO.getScore());
+                option.setOrderNum(i + 1); // 设置选项顺序
+                option.setCreateTime(LocalDateTime.now());
+                option.setUpdateTime(LocalDateTime.now());
+                templateOptionMapper.insert(option);
+            }
+        }
+        
+        // 3. 返回保存后的完整模板信息
+        return getOptionTemplateDetail(template.getId());
+    }
+
+    @Override
+    @Transactional
+    public boolean deleteOptionTemplate(String templateId) {
+        // 检查是否有题目使用了该模板
+        Long count = testQuestionMapper.selectCount(
+                new LambdaQueryWrapper<TestQuestion>()
+                        .eq(TestQuestion::getOptionTemplateId, templateId)
+        );
+        
+        if (count > 0) {
+            // 有题目使用该模板，不能删除
+            return false;
+        }
+        
+        // 删除模板选项
+        templateOptionMapper.delete(
+                new LambdaQueryWrapper<TemplateOption>()
+                        .eq(TemplateOption::getTemplateId, templateId)
+        );
+        
+        // 删除模板
+        optionTemplateMapper.deleteById(templateId);
+        return true;
+    }
+
+    @Override
+    @Transactional
+    public QuestionVO createQuestionWithTemplate(QuestionVO questionVO, String templateId) {
+        // 1. 获取模板详情
+        OptionTemplateVO template = getOptionTemplateDetail(templateId);
+        if (template == null) {
+            throw new RuntimeException("选项模板不存在");
+        }
+        
+        // 2. 设置问题的模板ID
+        questionVO.setOptionTemplateId(templateId);
+        
+        // 3. 设置问题的选项为模板选项
+        questionVO.setOptions(template.getOptions());
+        
+        // 4. 保存问题
+        return saveQuestion(questionVO);
+    }
+
+    // 辅助方法：将OptionTemplate转换为VO
+    private OptionTemplateVO convertToTemplateVO(OptionTemplate template) {
+        OptionTemplateVO vo = new OptionTemplateVO();
+        BeanUtils.copyProperties(template, vo);
+        return vo;
     }
 }

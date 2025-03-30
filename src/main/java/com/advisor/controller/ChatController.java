@@ -1,21 +1,22 @@
 package com.advisor.controller;
 
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.dashscope.QwenChatModel;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/ai")
+@RequestMapping("/api")
 public class ChatController {
 
-
     @Autowired
-    ChatLanguageModel chatLanguageModel;
+    private QwenChatModel qwenChatModel;
 
-    @RequestMapping("/chat")
-    public String test(@RequestParam(defaultValue = "你是谁") String message){
-        String chat = chatLanguageModel.chat(message);
+    @RequestMapping ("/chat")
+    public String chat(@RequestParam(defaultValue = "你是谁") String message) {
+        String chat = qwenChatModel.generate(message);
         return chat;
     }
-
+    
 }
