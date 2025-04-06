@@ -154,21 +154,29 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
         
         // 如果是一级评论，还需要删除其下的所有回复
         if (comment.getParentId() == null) {
+            // 查询所有回复
             LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(Comment::getParentId, commentId)
-                    .eq(Comment::getStatus, 1);
-            
+            queryWrapper.eq(Comment::getParentId, commentId);
             List<Comment> replies = commentMapper.selectList(queryWrapper);
+            
+            // 批量更新回复状态
             if (!replies.isEmpty()) {
                 for (Comment reply : replies) {
                     reply.setStatus(0);
                     commentMapper.updateById(reply);
-                    
                     // 更新帖子评论数
-                    postMapper.updateCommentCount(comment.getPostId(), -1);
+                    postMapper.updateCommentCount(reply.getPostId(), -1);
                 }
             }
         }
+    }
+    
+    @Override
+    public Comment getCommentInfo(String commentId) {
+        if (commentId == null || commentId.isEmpty()) {
+            return null;
+        }
+        return commentMapper.selectById(commentId);
     }
     
     /**

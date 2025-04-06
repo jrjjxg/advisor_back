@@ -2,6 +2,7 @@ package com.advisor.controller.community;
 
 import com.advisor.common.Result;
 import com.advisor.dto.CommentCreateRequest;
+import com.advisor.entity.community.Comment;
 import com.advisor.service.community.CommentService;
 import com.advisor.util.UserUtil;
 import com.advisor.vo.community.CommentVO;
@@ -13,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 评论控制器
@@ -62,5 +65,22 @@ public class CommentController {
         String userId = UserUtil.getCurrentUserId();
         commentService.deleteComment(commentId, userId);
         return Result.success();
+    }
+    
+    @ApiOperation("获取评论信息（包含帖子ID）")
+    @GetMapping("/info/{commentId}")
+    public Result<Map<String, Object>> getCommentInfo(@PathVariable String commentId) {
+        Comment comment = commentService.getCommentInfo(commentId);
+        if (comment == null) {
+            return Result.error("评论不存在");
+        }
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("commentId", comment.getId());
+        result.put("postId", comment.getPostId());
+        result.put("content", comment.getContent());
+        result.put("createTime", comment.getCreateTime());
+        
+        return Result.success(result);
     }
 }

@@ -118,7 +118,7 @@ public class UserController {
         userService.updateUser(user);
         return Result.success(null);
     }
-    
+
     /**
      * 更新用户头像
      */
@@ -138,7 +138,7 @@ public class UserController {
         userService.updateUser(user);
         return Result.success(null);
     }
-    
+
     /**
      * 检查用户名是否可用
      */
@@ -147,6 +147,7 @@ public class UserController {
         boolean available = userService.isUsernameAvailable(username);
         return Result.success(available);
     }
+    
     @PostMapping("/password")
     public Result<?> updatePassword(@RequestBody UpdatePasswordRequest request) {
     String username = UserUtil.getCurrentUsername();

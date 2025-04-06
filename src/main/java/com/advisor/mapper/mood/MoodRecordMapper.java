@@ -28,4 +28,29 @@ public interface MoodRecordMapper extends BaseMapper<MoodRecord> {
         @Param("userId") String userId, 
         @Param("startTime") LocalDateTime startTime, 
         @Param("endTime") LocalDateTime endTime);
+        
+    @Select("SELECT DATE_FORMAT(create_time, '%Y-%m-%d') as date, COUNT(*) as count, AVG(intensity) as avg_score " +
+            "FROM mood_record WHERE user_id = #{userId} AND create_time BETWEEN #{startDate} AND #{endDate} " +
+            "GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')")
+    List<Map<String, Object>> getMoodStatsByDateRange(@Param("userId") String userId, 
+                                                     @Param("startDate") LocalDateTime startDate, 
+                                                     @Param("endDate") LocalDateTime endDate);
+    
+    @Select("SELECT emotion_type, COUNT(*) as count FROM mood_record " +
+            "WHERE user_id = #{userId} AND create_time BETWEEN #{startDate} AND #{endDate} " +
+            "GROUP BY emotion_type ORDER BY count DESC")
+    List<Map<String, Object>> getEmotionTypeDistribution(@Param("userId") String userId, 
+                                                        @Param("startDate") LocalDateTime startDate, 
+                                                        @Param("endDate") LocalDateTime endDate);
+    
+    @Select("SELECT mt.name as tag_name, COUNT(*) as count " +
+            "FROM mood_record mr " +
+            "JOIN mood_record_tag mrt ON mr.id = mrt.mood_record_id " +
+            "JOIN mood_tag mt ON mrt.tag_id = mt.id " +
+            "WHERE mr.user_id = #{userId} AND mr.create_time BETWEEN #{startDate} AND #{endDate} " +
+            "GROUP BY mt.name " +
+            "ORDER BY count DESC LIMIT 5")
+    List<Map<String, Object>> getCommonEmotionTags(@Param("userId") String userId, 
+                                                  @Param("startDate") LocalDateTime startDate, 
+                                                  @Param("endDate") LocalDateTime endDate);
 }

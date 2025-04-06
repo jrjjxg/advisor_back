@@ -23,14 +23,14 @@ public class UserUtil {
     
     /**
      * 获取当前登录用户ID
-     * 通过用户名查询用户ID
+     * 通过用户名获取用户ID
      */
     public static String getCurrentUserId() {
         String username = getCurrentUsername();
         if (username == null) {
             return null;
         }
-        
+
         // 通过用户名查询用户信息
         User user = userService.getUserByUsername(username);
         return user != null ? user.getId() : null;

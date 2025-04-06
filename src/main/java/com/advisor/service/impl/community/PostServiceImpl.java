@@ -59,6 +59,8 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
     @Override
     @Transactional
     public String createPost(PostCreateRequest request, String userId) {
+        log.info("创建帖子请求, userId={}, content={}, images={}", userId, request.getContent(), request.getImages());
+        
         // 创建帖子
         Post post = new Post();
         post.setUserId(userId);
@@ -74,9 +76,29 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
         
-        // 处理图片
+        // 处理图片 - 确保存储的是完整的七牛云URL
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            post.setImages(String.join(",", request.getImages()));
+            log.info("帖子包含{}张图片", request.getImages().size());
+            // 验证所有图片URL是否为七牛云URL
+            List<String> validImageUrls = request.getImages().stream()
+                    .filter(url -> url != null && !url.isEmpty())
+                    .map(url -> {
+                        // 如果URL已经是完整的七牛云URL，则直接使用
+                        if (url.startsWith("http://") || url.startsWith("https://")) {
+                            log.info("图片URL已是完整URL: {}", url);
+                            return url;
+                        } 
+                        // 否则，可能是相对路径，需要转换为完整URL
+                        log.warn("图片URL不是完整URL: {}", url);
+                        return url;
+                    })
+                    .collect(Collectors.toList());
+            
+            String imageStr = String.join(",", validImageUrls);
+            log.info("最终保存的图片URL字符串: {}", imageStr);
+            post.setImages(imageStr);
+        } else {
+            log.info("帖子不包含图片");
         }
         
         // 保存帖子

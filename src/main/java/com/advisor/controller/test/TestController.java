@@ -304,4 +304,25 @@ public class TestController {
             return Result.fail("创建题目失败: " + e.getMessage());
         }
     }
+
+    /**
+     * 根据条件搜索和筛选测试
+     */
+    @GetMapping("/search")
+    public Result<List<TestTypeVO>> searchTests(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortBy) {
+        
+        List<TestTypeVO> testTypes = testService.searchTests(keyword, sortBy);
+        return Result.success(testTypes);
+    }
+
+    /**
+     * 获取所有测试分类
+     */
+    @GetMapping("/categories")
+    public Result<List<Map<String, Object>>> getCategories() {
+        List<Map<String, Object>> categories = testService.getAllCategories();
+        return Result.success(categories);
+    }
 }

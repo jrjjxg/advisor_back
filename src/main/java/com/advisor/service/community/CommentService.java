@@ -2,6 +2,7 @@ package com.advisor.service.community;
 
 
 import com.advisor.dto.CommentCreateRequest;
+import com.advisor.entity.community.Comment;
 import com.advisor.vo.community.CommentVO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
@@ -48,4 +49,12 @@ public interface CommentService {
      * @param userId    用户ID
      */
     void deleteComment(String commentId, String userId);
+    
+    /**
+     * 获取评论详情，主要用于获取评论所属的帖子ID
+     *
+     * @param commentId 评论ID
+     * @return 评论实体
+     */
+    Comment getCommentInfo(String commentId);
 }

@@ -17,9 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class TestServiceImpl implements TestService {
+
+    private static final Logger log = LoggerFactory.getLogger(TestServiceImpl.class);
 
     @Autowired
     private TestTypeMapper testTypeMapper;
@@ -47,6 +51,9 @@ public class TestServiceImpl implements TestService {
 
     @Autowired
     private TestScoreLevelService testScoreLevelService;
+
+    @Autowired
+    private TestCategoryMapper testCategoryMapper;
 
     @Override
     public List<TestTypeVO> getAllTestTypes() {
@@ -85,35 +92,40 @@ public class TestServiceImpl implements TestService {
                 .collect(Collectors.toList());
 
         // 查询所有模板选项
-        Map<String, List<TemplateOption>> templateOptionsMap = new HashMap<>();
+        final Map<String, List<TemplateOption>> templateOptionsMap = new HashMap<>();
         if (!templateIds.isEmpty()) {
             List<TemplateOption> allTemplateOptions = templateOptionMapper.selectList(
                     new LambdaQueryWrapper<TemplateOption>()
                             .in(TemplateOption::getTemplateId, templateIds)
                             .orderByAsc(TemplateOption::getOrderNum)
             );
-            
+
             // 按模板ID分组选项
-            templateOptionsMap = allTemplateOptions.stream()
-                    .collect(Collectors.groupingBy(TemplateOption::getTemplateId));
+            templateOptionsMap.putAll(allTemplateOptions.stream()
+                    .collect(Collectors.groupingBy(TemplateOption::getTemplateId)));
         }
 
         // 构建问题VO
         return questions.stream().map(q -> {
-            QuestionVO vo = new QuestionVO();
+            final QuestionVO vo = new QuestionVO();
             BeanUtils.copyProperties(q, vo);
 
-            // 获取模板选项
-            List<TemplateOption> templateOptions = templateOptionsMap
-                    .getOrDefault(q.getOptionTemplateId(), Collections.emptyList());
+            // 为每个问题创建一个新的选项列表变量
+            final List<QuestionOptionVO> optionVOs = new ArrayList<>();
 
-            // 将模板选项转换为问题选项VO
-            List<QuestionOptionVO> optionVOs = templateOptions.stream().map(option -> {
-                QuestionOptionVO optionVO = new QuestionOptionVO();
-                optionVO.setContent(option.getContent());
-                optionVO.setScore(option.getScore());
-                return optionVO;
-            }).collect(Collectors.toList());
+            // 获取模板选项
+            if (q.getOptionTemplateId() != null && !q.getOptionTemplateId().isEmpty()) {
+                final String templateId = q.getOptionTemplateId();
+                final List<TemplateOption> templateOptions = templateOptionsMap.getOrDefault(templateId, Collections.emptyList());
+
+                // 将模板选项转换为问题选项VO
+                optionVOs.addAll(templateOptions.stream().map(option -> {
+                    QuestionOptionVO optionVO = new QuestionOptionVO();
+                    optionVO.setContent(option.getContent());
+                    optionVO.setScore(option.getScore());
+                    return optionVO;
+                }).collect(Collectors.toList()));
+            }
 
             vo.setOptions(optionVOs);
             return vo;
@@ -871,12 +883,49 @@ public class TestServiceImpl implements TestService {
 
     @Override
     public List<OptionTemplateVO> getAllOptionTemplates() {
+        // 1. 获取所有模板
         List<OptionTemplate> templates = optionTemplateMapper.selectList(
                 new LambdaQueryWrapper<OptionTemplate>()
                         .orderByDesc(OptionTemplate::getCreateTime)
         );
         
-        return templates.stream().map(this::convertToTemplateVO).collect(Collectors.toList());
+        if (templates.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 2. 获取所有模板ID
+        List<String> templateIds = templates.stream()
+                .map(OptionTemplate::getId)
+                .collect(Collectors.toList());
+                
+        // 3. 一次性查询所有模板的选项
+        List<TemplateOption> allOptions = templateOptionMapper.selectList(
+                new LambdaQueryWrapper<TemplateOption>()
+                        .in(TemplateOption::getTemplateId, templateIds)
+                        .orderByAsc(TemplateOption::getOrderNum)
+        );
+        
+        // 4. 按模板ID分组
+        Map<String, List<TemplateOption>> optionsMap = allOptions.stream()
+                .collect(Collectors.groupingBy(TemplateOption::getTemplateId));
+                
+        // 5. 转换并设置选项
+        return templates.stream().map(template -> {
+            OptionTemplateVO vo = new OptionTemplateVO();
+            BeanUtils.copyProperties(template, vo);
+            
+            // 设置选项
+            List<TemplateOption> options = optionsMap.getOrDefault(template.getId(), Collections.emptyList());
+            List<QuestionOptionVO> optionVOs = options.stream().map(option -> {
+                QuestionOptionVO optionVO = new QuestionOptionVO();
+                optionVO.setContent(option.getContent());
+                optionVO.setScore(option.getScore());
+                return optionVO;
+            }).collect(Collectors.toList());
+            
+            vo.setOptions(optionVOs);
+            return vo;
+        }).collect(Collectors.toList());
     }
 
     @Override
@@ -1016,5 +1065,75 @@ public class TestServiceImpl implements TestService {
         OptionTemplateVO vo = new OptionTemplateVO();
         BeanUtils.copyProperties(template, vo);
         return vo;
+    }
+
+    @Override
+    public List<TestTypeVO> searchTests(String keyword, String sortBy) {
+        LambdaQueryWrapper<TestType> queryWrapper = new LambdaQueryWrapper<TestType>()
+                .eq(TestType::getStatus, 1);
+        
+        // 添加搜索条件
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            queryWrapper.and(wrapper -> wrapper
+                    .like(TestType::getName, keyword)
+                    .or()
+                    .like(TestType::getDescription, keyword));
+        }
+        
+        // 添加排序条件
+        if ("hot".equals(sortBy)) {
+            // 最热：使用测试完成人数排序，需要从 TestResult 表中获取数据
+            List<TestType> testTypes = testTypeMapper.selectList(queryWrapper);
+            List<TestTypeVO> result = testTypes.stream().map(this::convertToVO).collect(Collectors.toList());
+            
+            // 获取所有测试ID
+            List<String> testIds = result.stream().map(TestTypeVO::getId).collect(Collectors.toList());
+            Map<String, Integer> completionCounts = getTestCompletionCounts(testIds);
+            
+            // 设置完成人数并排序
+            for (TestTypeVO vo : result) {
+                vo.setTestCount(completionCounts.getOrDefault(vo.getId(), 0));
+            }
+            
+            return result.stream()
+                    .sorted(Comparator.comparing(TestTypeVO::getTestCount, Comparator.reverseOrder()))
+                    .collect(Collectors.toList());
+        } else if ("new".equals(sortBy)) {
+            // 最新：按创建时间倒序
+            queryWrapper.orderByDesc(TestType::getCreateTime);
+        } else {
+            // 默认按分类和名称排序
+            queryWrapper.orderByAsc(TestType::getCategory)
+                    .orderByAsc(TestType::getName);
+        }
+        
+        List<TestType> testTypes = testTypeMapper.selectList(queryWrapper);
+        return testTypes.stream().map(this::convertToVO).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<Map<String, Object>> getAllCategories() {
+        // 添加日志
+        log.info("开始获取所有测试分类");
+        
+        try {
+            // 查询所有分类
+            List<TestCategory> categories = testCategoryMapper.selectList(null);
+            log.info("查询到{}个分类", categories.size());
+            
+            // 转换为前端需要的格式
+            return categories.stream().map(category -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("code", category.getCode());
+                map.put("name", category.getName());
+                map.put("description", category.getDescription());
+                map.put("icon", category.getIcon());
+                map.put("color", category.getColor());
+                return map;
+            }).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("获取分类失败", e);
+            throw e;
+        }
     }
 }

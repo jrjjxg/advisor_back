@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.advisor.mapper.journal.JournalMapper">
+
+    <!-- 获取用户在指定日期范围内的日记统计数据 -->
+    <select id="getJournalStatsByDateRange" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(create_time, '%Y-%m-%d') as date,
+            COUNT(*) as count,
+            SUM(word_count) as total_words
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
+
+    <!-- 获取用户在指定日期范围内的心情标签统计 -->
+    <select id="getRelatedMoodStatsByDateRange" resultType="java.util.Map">
+        SELECT 
+            m.emotion_type as mood_type,
+            COUNT(*) as count
+        FROM user_journal j
+        JOIN mood_record m ON j.related_mood_id = m.id
+        WHERE j.user_id = #{userId}
+        AND j.is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND j.create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND j.create_time <= #{endDate} ]]>
+        </if>
+        GROUP BY m.emotion_type
+        ORDER BY count DESC
+    </select>
+
+    <!-- 获取用户在指定日期范围内的平均字数 -->
+    <select id="getAverageWordCount" resultType="java.util.Map">
+        SELECT 
+            AVG(word_count) as avg_word_count,
+            MAX(word_count) as max_word_count,
+            MIN(CASE WHEN word_count > 0 THEN word_count ELSE NULL END) as min_word_count
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+    </select>
+
+    <!-- 获取用户在指定日期范围内有日记的日期列表 -->
+    <select id="getDistinctJournalDates" resultType="java.lang.String">
+        SELECT DISTINCT DATE_FORMAT(create_time, '%Y-%m-%d') as date
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        ORDER BY date
+    </select>
+
+    <!-- 获取用户关联心情的统计数据 -->
+    <select id="getRelatedMoodStats" resultType="java.util.Map">
+        SELECT 
+            m.emotion_type as mood_type,
+            COUNT(*) as count
+        FROM user_journal j
+        JOIN mood_record m ON j.related_mood_id = m.id
+        WHERE j.user_id = #{userId}
+        AND j.is_deleted = 0
+        GROUP BY m.emotion_type
+        ORDER BY count DESC
+    </select>
+
+    <!-- 获取用户日记关键词统计 -->
+    <select id="getKeywordsStats" resultType="java.util.Map">
+        SELECT 
+            keyword,
+            COUNT(*) as count
+        FROM (
+            SELECT 
+                j.id,
+                SUBSTRING_INDEX(SUBSTRING_INDEX(j.keywords, ',', numbers.n), ',', -1) as keyword
+            FROM user_journal j
+            JOIN (
+                SELECT 1 as n UNION ALL
+                SELECT 2 UNION ALL
+                SELECT 3 UNION ALL
+                SELECT 4 UNION ALL
+                SELECT 5 UNION ALL
+                SELECT 6 UNION ALL
+                SELECT 7 UNION ALL
+                SELECT 8 UNION ALL
+                SELECT 9 UNION ALL
+                SELECT 10
+            ) numbers ON CHAR_LENGTH(j.keywords) - CHAR_LENGTH(REPLACE(j.keywords, ',', '')) >= numbers.n - 1
+            WHERE j.user_id = #{userId}
+            AND j.is_deleted = 0
+            AND j.keywords IS NOT NULL
+            AND j.keywords != ''
+            <if test="startDate != null">
+                <![CDATA[ AND j.create_time >= #{startDate} ]]>
+            </if>
+            <if test="endDate != null">
+                <![CDATA[ AND j.create_time <= #{endDate} ]]>
+            </if>
+        ) as keywords
+        GROUP BY keyword
+        ORDER BY count DESC
+        LIMIT 20
+    </select>
+
+    <!-- 按日统计日记数据 -->
+    <select id="getDailyJournalStats" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(create_time, '%Y-%m-%d') as date,
+            COUNT(*) as count,
+            SUM(word_count) as total_words,
+            AVG(word_count) as avg_words
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
+
+    <!-- 按周统计日记数据 -->
+    <select id="getWeeklyJournalStats" resultType="java.util.Map">
+        SELECT 
+            CONCAT(YEAR(create_time), '-', WEEK(create_time)) as week,
+            MIN(DATE_FORMAT(create_time, '%Y-%m-%d')) as start_date,
+            MAX(DATE_FORMAT(create_time, '%Y-%m-%d')) as end_date,
+            COUNT(*) as count,
+            SUM(word_count) as total_words,
+            AVG(word_count) as avg_words
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        GROUP BY YEAR(create_time), WEEK(create_time)
+        ORDER BY week
+    </select>
+
+    <!-- 按月统计日记数据 -->
+    <select id="getMonthlyJournalStats" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(create_time, '%Y-%m') as month,
+            COUNT(*) as count,
+            SUM(word_count) as total_words,
+            AVG(word_count) as avg_words
+        FROM user_journal
+        WHERE user_id = #{userId}
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        GROUP BY DATE_FORMAT(create_time, '%Y-%m')
+        ORDER BY month
+    </select>
+    
+    <!-- 根据心情ID查找关联的日记 -->
+    <select id="findByRelatedMoodId" resultType="com.advisor.entity.journal.Journal">
+        SELECT * FROM user_journal 
+        WHERE related_mood_id = #{moodId} 
+        AND is_deleted = 0
+    </select>
+    
+    <!-- 获取关键词频率 -->
+    <select id="getKeywordFrequency" resultType="java.util.Map">
+        SELECT 
+            keywords, 
+            COUNT(*) as frequency 
+        FROM user_journal 
+        WHERE user_id = #{userId} 
+        AND is_deleted = 0
+        <if test="startDate != null">
+            <![CDATA[ AND create_time >= #{startDate} ]]>
+        </if>
+        <if test="endDate != null">
+            <![CDATA[ AND create_time <= #{endDate} ]]>
+        </if>
+        AND keywords IS NOT NULL 
+        AND keywords != '' 
+        GROUP BY keywords 
+        ORDER BY frequency DESC
+    </select>
+</mapper>

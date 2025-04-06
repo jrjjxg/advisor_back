@@ -40,6 +40,8 @@ spring:
           starttls:
             enable: true
             required: true
+          ssl:
+            enable: true
   jvm:
     args: --add-opens java.base/java.lang.invoke=ALL-UNNAMED
   servlet:
@@ -48,7 +50,7 @@ spring:
       max-request-size: 50MB
 
 mybatis-plus:
-  mapper-locations: classpath:/mapper/**/*.xml
+  mapper-locations: classpath:mapper/**/*.xml
   type-aliases-package: com.advisor.entity
   configuration:
     map-underscore-to-camel-case: true
@@ -99,10 +101,17 @@ jwt:
 qiniu:
   access-key: 94BvdJExQ963UsZRcc2rMNoIfoZb1-1CfCrsjoEg
   secret-key: 3Bpbjy6Cn68P9Sglbm4KSv32MgzJuFEbUqXzmulx
-  bucket: myai-video
-  domain: http://stefccaiw.hb-bkt.clouddn.com
+  bucket: myai-resource
+  domain: http://su5mwlhe1.hb-bkt.clouddn.com
 
 # 添加到您现有的application.yml
 dashscope:
   api-key: ${ALI_AI_KEY}
   model-name: qwen-max
+
+emotion.recognition.api.url: http://localhost:5000
+
+# 聊天机器人API配置
+chatbot:
+  api:
+    url: http://localhost:5000

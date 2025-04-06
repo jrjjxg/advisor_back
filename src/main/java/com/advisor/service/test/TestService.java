@@ -63,4 +63,18 @@ public interface TestService {
 
     // 使用模板创建问题
     QuestionVO createQuestionWithTemplate(QuestionVO questionVO, String templateId);
+
+    /**
+     * 搜索测试
+     * @param keyword 搜索关键词
+     * @param sortBy 排序方式（"hot"表示最热，"new"表示最新）
+     * @return 测试列表
+     */
+    List<TestTypeVO> searchTests(String keyword, String sortBy);
+
+    /**
+     * 获取所有测试分类
+     * @return 分类列表
+     */
+    List<Map<String, Object>> getAllCategories();
 }

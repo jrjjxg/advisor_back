@@ -4,7 +4,11 @@ import com.advisor.entity.base.User;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户Mapper接口
@@ -81,4 +85,17 @@ public interface UserMapper extends BaseMapper<User> {
      */
     @Update("UPDATE user SET notification_unread = notification_unread + #{count} WHERE id = #{userId}")
     int updateNotificationUnread(@Param("userId") String userId, @Param("count") int count);
+    
+    /**
+     * 获取活跃用户列表
+     * 
+     * @param startDate 起始日期
+     * @return 活跃用户列表
+     */
+    @Select("SELECT DISTINCT u.* FROM user u " +
+            "LEFT JOIN mood_record mr ON u.id = mr.user_id " +
+            "LEFT JOIN user_journal j ON u.id = j.user_id " +
+            "LEFT JOIN test_result tr ON u.id = tr.user_id " +
+            "WHERE mr.create_time >= #{startDate} OR j.create_time >= #{startDate} OR tr.create_time >= #{startDate}")
+    List<User> getActiveUsers(@Param("startDate") LocalDateTime startDate);
 }
