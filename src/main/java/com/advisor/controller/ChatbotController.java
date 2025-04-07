@@ -9,17 +9,100 @@ import com.advisor.util.UserUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/api/chatbot")
+
 public class ChatbotController {
     private static final Logger logger = LoggerFactory.getLogger(ChatbotController.class);
 
     @Autowired
     private ChatbotService chatbotService;
+    
+    // 创建线程池处理流式响应
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
+
+
+    @GetMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatStream(@RequestParam String threadId, 
+                              @RequestParam String userId,
+                              @RequestParam(required = false) String message) {
+        logger.info("开始流式聊天: userId={}, threadId={}", userId, threadId);
+        
+        // 创建SSE emitter
+        SseEmitter emitter = new SseEmitter(180000L); // 3分钟超时
+        
+        // 异步处理
+        executorService.execute(() -> {
+            try {
+                // 发送开始事件
+                String responseId = UUID.randomUUID().toString();
+                emitter.send(SseEmitter.event()
+                        .name("start")
+                        .data("{\"response_id\":\"" + responseId + "\"}"));
+                
+                // 如果有消息，处理消息
+                if (message != null && !message.trim().isEmpty()) {
+                    // 实际项目中这里应该调用聊天服务逐步获取回复，这里模拟一下
+                    ChatResponse response = chatbotService.sendMessage(userId, threadId, message);
+                    
+                    // 模拟流式输出 - 将整个回复分成多个小块发送
+                    String fullResponse = response.getMessage();
+                    int chunkSize = 5; // 每次发送5个字符
+                    
+                    for (int i = 0; i < fullResponse.length(); i += chunkSize) {
+                        String chunk = fullResponse.substring(i, 
+                                Math.min(i + chunkSize, fullResponse.length()));
+                        
+                        // 发送数据块
+                        emitter.send(SseEmitter.event()
+                                .name("chunk")
+                                .data("{\"chunk\":\"" + chunk + "\", \"response_id\":\"" + responseId + "\"}"));
+                        
+                        // 模拟延迟
+                        Thread.sleep(50);
+                    }
+                    
+                    // 发送完成事件
+                    emitter.send(SseEmitter.event()
+                            .name("complete")
+                            .data("{\"full_response\":\"" + fullResponse + "\", \"response_id\":\"" + responseId + "\"}"));
+                }
+                
+                // 完成
+                emitter.complete();
+            } catch (Exception e) {
+                logger.error("流式聊天处理异常", e);
+                emitter.completeWithError(e);
+            }
+        });
+        
+        // 设置超时和错误处理
+        emitter.onTimeout(() -> logger.warn("聊天流超时: userId={}, threadId={}", userId, threadId));
+        emitter.onError((e) -> logger.error("聊天流错误: userId={}, threadId={}, error={}", userId, threadId, e.getMessage()));
+        
+        return emitter;
+    }
+    
+    /**
+     * 处理POST方式的流式请求，与GET方式功能相同
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter chatStreamPost(@RequestParam String threadId, 
+                                 @RequestParam String userId,
+                                 @RequestBody(required = false) ChatRequest request) {
+        String message = request != null ? request.getMessage() : null;
+        return chatStream(threadId, userId, message);
+    }
 
     /**
      * 发送消息到聊天机器人

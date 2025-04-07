@@ -150,27 +150,39 @@ public class UserController {
     
     @PostMapping("/password")
     public Result<?> updatePassword(@RequestBody UpdatePasswordRequest request) {
-    String username = UserUtil.getCurrentUsername();
-    if (username == null) {
-        return Result.fail(401, "用户未登录");
+        String username = UserUtil.getCurrentUsername();
+        if (username == null) {
+            return Result.fail(401, "用户未登录");
+        }
+        
+        try {
+            userService.updatePassword(username, request.getOldPassword(), request.getNewPassword());
+            return Result.success(null);
+        } catch (Exception e) {
+            return Result.fail(500, e.getMessage());
+        }
     }
-    
-    try {
-        userService.updatePassword(username, request.getOldPassword(), request.getNewPassword());
-        return Result.success(null);
-    } catch (Exception e) {
-        return Result.fail(500, e.getMessage());
-    }
-}
 
-
-@PostMapping("/upload")
-public Result<String> uploadFile(@RequestParam("file") MultipartFile file) {
-    try {
-        String fileUrl = fileService.uploadFile(file);
-        return Result.success(fileUrl);
-    } catch (Exception e) {
-        return Result.fail(500, e.getMessage());
+    /**
+     * 根据用户名获取用户ID
+     * 此接口用于Python后端调用
+     */
+    @GetMapping("/get-user-id-by-username")
+    public Result<String> getUserIdByUsername(@RequestParam String username) {
+        User user = userService.getUserByUsername(username);
+        if (user == null) {
+            return Result.fail(404, "用户不存在");
+        }
+        return Result.success(user.getId());
     }
-}
+
+    @PostMapping("/upload")
+    public Result<String> uploadFile(@RequestParam("file") MultipartFile file) {
+        try {
+            String fileUrl = fileService.uploadFile(file);
+            return Result.success(fileUrl);
+        } catch (Exception e) {
+            return Result.fail(500, e.getMessage());
+        }
+    }
 }

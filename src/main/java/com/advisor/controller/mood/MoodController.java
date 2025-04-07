@@ -69,7 +69,7 @@ public class MoodController {
         return Result.success(moods);
     }
     
-    @GetMapping("/analytics")  // 改回GET请求
+    @GetMapping("/analytics")
     public Result<Map<String, Object>> getMoodAnalytics(
             @RequestHeader("userId") String userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

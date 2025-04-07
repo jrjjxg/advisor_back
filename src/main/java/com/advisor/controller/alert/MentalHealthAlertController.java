@@ -51,8 +51,22 @@ public class MentalHealthAlertController {
      * 获取紧急联系人列表
      */
     @GetMapping("/emergency-contacts")
-    public Result<List<EmergencyContact>> getEmergencyContacts() {
-        String userId = UserUtil.getCurrentUserId();
+    public Result<List<EmergencyContact>> getEmergencyContacts(
+            @RequestHeader(value = "userId", required = false) String headerUserId) {
+        String userId;
+        
+        // 优先使用请求头中的 userId
+        if (headerUserId != null && !headerUserId.trim().isEmpty()) {
+            userId = headerUserId;
+        } else {
+            // 如果请求头中没有，则尝试从 Spring Security 上下文获取
+            userId = UserUtil.getCurrentUserId();
+        }
+        
+        if (userId == null) {
+            return Result.fail(401, "未提供有效的用户ID");
+        }
+        
         List<EmergencyContact> contacts = mentalHealthAlertService.getUserEmergencyContacts(userId);
         return Result.success(contacts);
     }
