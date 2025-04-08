@@ -115,3 +115,8 @@ emotion.recognition.api.url: http://localhost:5000
 chatbot:
   api:
     url: http://localhost:5000
+
+# AI服务配置
+agent:
+  api:
+    url: http://localhost:5000

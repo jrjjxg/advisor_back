@@ -11,6 +11,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.advisor.service.AgentMonitorService;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +25,9 @@ public class ChatbotServiceImpl implements ChatbotService {
     
     @Value("${chatbot.api.url}")
     private String chatbotApiUrl;
+    
+    @Autowired
+    private AgentMonitorService agentMonitorService;
     
     @Override
     public ChatResponse sendMessage(String userId, String threadId, String message) {
@@ -43,7 +48,19 @@ public class ChatbotServiceImpl implements ChatbotService {
             String fullUrl = chatbotApiUrl + "/api/chat";
             logger.info("调用AI服务URL: {}", fullUrl);
             
-            return restTemplate.postForObject(fullUrl, request, ChatResponse.class);
+            ChatResponse response = restTemplate.postForObject(fullUrl, request, ChatResponse.class);
+            
+            // 获取情绪分析
+            Map<String, Object> emotionAnalysis = agentMonitorService.getEmotionAnalysis(userId, threadId);
+            
+            // 检查是否需要发送预警
+            if (emotionAnalysis != null && 
+                (Boolean)emotionAnalysis.getOrDefault("needsAlert", false)) {
+                String alertMessage = (String)emotionAnalysis.get("alertMessage");
+                agentMonitorService.sendAlert(userId, alertMessage);
+            }
+            
+            return response;
         } catch (Exception e) {
             logger.error("调用AI服务失败: " + e.getMessage(), e);
             
@@ -140,6 +157,29 @@ public class ChatbotServiceImpl implements ChatbotService {
         } catch (Exception e) {
             logger.error("删除AI对话线程失败: " + e.getMessage(), e);
             // 忽略异常，不中断流程
+        }
+    }
+    
+    public boolean handleConfirmation(String userId, String threadId, String response) {
+        // 构建请求
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("userId", userId);
+        requestBody.put("threadId", threadId);
+        requestBody.put("response", response);
+        
+        // 设置请求头
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+        
+        try {
+            // 调用Python服务的API
+            String fullUrl = chatbotApiUrl + "/api/confirm";
+            return restTemplate.postForObject(fullUrl, request, Boolean.class);
+        } catch (Exception e) {
+            logger.error("处理确认失败: " + e.getMessage(), e);
+            return false;
         }
     }
 }
