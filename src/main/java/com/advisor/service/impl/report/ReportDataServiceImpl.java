@@ -110,44 +110,29 @@ public class ReportDataServiceImpl implements ReportDataService {
     @Override
     public TestResultDataVO getTestResultData(String userId, LocalDateTime startDate, LocalDateTime endDate) {
         TestResultDataVO testData = new TestResultDataVO();
-        
+
         // 获取测试次数统计
         int testCount = testResultMapper.countTestsByDateRange(userId, startDate, endDate);
         testData.setTotalTests(testCount);
-        
+
         // 获取测试类型分布
         List<Map<String, Object>> testTypeStats = testResultMapper.getTestTypeDistribution(userId, startDate, endDate);
         testData.setTestTypeDistribution(testTypeStats);
-        
+
         // 获取各类型测试的分数变化趋势（最多获取前3种测试类型）
         if (testTypeStats.size() > 0) {
             int limit = Math.min(3, testTypeStats.size());
             Map<String, List<Map<String, Object>>> scoreChanges = new HashMap<>();
-            
+
             for (int i = 0; i < limit; i++) {
                 String testTypeId = (String) testTypeStats.get(i).get("test_type_id");
                 List<Map<String, Object>> scores = testResultMapper.getTestScoresByType(userId, testTypeId, startDate, endDate);
                 scoreChanges.put(testTypeId, scores);
             }
-            
+
             testData.setScoreChanges(scoreChanges);
         }
-        
+
         return testData;
     }
-
-    @Override
-    public List<Map<String, Object>> getKeywordCloudData(String userId, LocalDateTime startDate, LocalDateTime endDate) {
-        // 获取关键词频率
-        List<Map<String, Object>> keywordStats = journalMapper.getKeywordFrequency(userId, startDate, endDate);
-        
-        // 限制返回前50个关键词
-        if (keywordStats != null && keywordStats.size() > 50) {
-            keywordStats = keywordStats.subList(0, 50);
-        } else if (keywordStats == null) {
-            keywordStats = Collections.emptyList(); // 返回空列表避免 null
-        }
-        
-        return keywordStats;
-    }
-} 
+}

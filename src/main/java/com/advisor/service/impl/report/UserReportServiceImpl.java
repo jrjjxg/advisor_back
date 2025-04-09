@@ -342,10 +342,6 @@ public class UserReportServiceImpl implements UserReportService {
         TestResultDataVO testData = reportDataService.getTestResultData(userId, startDate, endDate);
         reportData.put("testData", testData);
         
-        // 收集关键词云数据
-        List<Map<String, Object>> keywordData = reportDataService.getKeywordCloudData(userId, startDate, endDate);
-        reportData.put("keywordData", keywordData);
-        
         return reportData;
     }
     

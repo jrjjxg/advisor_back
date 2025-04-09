@@ -102,4 +102,22 @@ public class JournalStatsController {
         List<String> dates = journalService.getJournalDatesInRange(userId, startDateTime, endDateTime);
         return Result.success(dates);
     }
+    
+    /**
+     * 获取用户日记关键词云数据
+     */
+    @GetMapping("/keyword-cloud")
+    public Result<List<Map<String, Object>>> getKeywordCloudData(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(defaultValue = "30") Integer limit) {
+        
+        String userId = UserUtil.getCurrentUserId();
+        
+        LocalDateTime startDateTime = startDate != null ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = endDate != null ? endDate.atTime(LocalTime.MAX) : null;
+        
+        List<Map<String, Object>> keywordData = journalService.getKeywordCloudData(userId, startDateTime, endDateTime, limit);
+        return Result.success(keywordData);
+    }
 } 

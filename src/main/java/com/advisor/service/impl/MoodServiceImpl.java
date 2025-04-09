@@ -45,6 +45,11 @@ public class MoodServiceImpl implements MoodService {
         moodRecord.setIntensity(moodDTO.getIntensity());
         moodRecord.setNote(moodDTO.getNote());
         
+        // 手动设置创建时间和更新时间，解决create_time不能为null的问题
+        LocalDateTime now = LocalDateTime.now();
+        moodRecord.setCreateTime(now);
+        moodRecord.setUpdateTime(now);
+        
         moodRecordMapper.insert(moodRecord);
         
         // 处理标签

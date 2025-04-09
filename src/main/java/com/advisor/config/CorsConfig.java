@@ -10,16 +10,16 @@ import java.util.Arrays;
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:5173")  // Vue开发服务器地址
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                .exposedHeaders("Authorization")  // 暴露Authorization头
-                .allowCredentials(true)
-                .maxAge(3600);  // 预检请求的有效期，单位为秒
-    }
+//    @Override
+//    public void addCorsMappings(CorsRegistry registry) {
+//        registry.addMapping("/**")
+//                .allowedOrigins("http://localhost:5173")  // Vue开发服务器地址
+//                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+//                .allowedHeaders("*")
+//                .exposedHeaders("Authorization")  // 暴露Authorization头
+//                .allowCredentials(true)
+//                .maxAge(3600);  // 预检请求的有效期，单位为秒
+//    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

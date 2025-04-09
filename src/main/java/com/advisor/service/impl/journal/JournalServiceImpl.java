@@ -4,6 +4,7 @@ import com.advisor.entity.journal.Journal;
 import com.advisor.exception.ForbiddenException;
 import com.advisor.exception.ResourceNotFoundException;
 import com.advisor.mapper.journal.JournalMapper;
+import com.advisor.service.emotion.BaiduEmotionService;
 import com.advisor.service.journal.JournalService;
 import com.advisor.util.KeywordExtractor;
 import com.advisor.vo.journal.JournalRequest;
@@ -37,6 +38,10 @@ public class JournalServiceImpl implements JournalService {
     
     @Autowired(required = false)
     private KeywordExtractor keywordExtractor;
+
+    @Autowired
+    private BaiduEmotionService emotionService;
+
 
     @Override
     @Transactional
@@ -86,6 +91,12 @@ public class JournalServiceImpl implements JournalService {
             String plainText = removeHtmlTags(journalRequest.getContent());
             List<String> keywords = Collections.singletonList(keywordExtractor.extract(plainText));
             journal.setKeywords(String.join(",", keywords));
+        }
+        
+        // 添加情感分析
+        if (StringUtils.isNotBlank(journalRequest.getContent())) {
+            String plainText = removeHtmlTags(journalRequest.getContent());
+            emotionService.analyzeJournal(journal);
         }
         
         // 保存日记
@@ -494,6 +505,33 @@ public class JournalServiceImpl implements JournalService {
         
         result.put("privateRatio", privateRatio);
         result.put("imageRatio", imageRatio);
+        
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getKeywordCloudData(String userId, LocalDateTime startDate, LocalDateTime endDate, Integer limit) {
+        // 获取关键词统计，包含每个关键词及其出现次数
+        List<Map<String, Object>> keywordStats = journalMapper.getKeywordsStats(userId, startDate, endDate);
+        
+        // 如果关键词数据为空，返回空列表
+        if (keywordStats == null || keywordStats.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 处理结果，确保字段名称适合前端词云组件
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> stat : keywordStats) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("name", stat.get("keyword"));  // 关键词名称
+            item.put("value", stat.get("count"));   // 关键词出现次数
+            result.add(item);
+            
+            // 限制返回的关键词数量
+            if (result.size() >= limit) {
+                break;
+            }
+        }
         
         return result;
     }

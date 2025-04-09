@@ -1,4 +1,4 @@
-package com.advisor.controller.auth;
+package com.advisor.controller.admin;
 
 import com.advisor.common.Result;
 import com.advisor.dto.LoginRequest;

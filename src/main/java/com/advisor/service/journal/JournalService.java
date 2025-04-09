@@ -88,4 +88,14 @@ public interface JournalService {
      * 获取用户在指定日期范围内有日记的日期列表
      */
     List<String> getJournalDatesInRange(String userId, LocalDateTime startDate, LocalDateTime endDate);
+
+    /**
+     * 获取用户日记关键词云数据
+     * @param userId 用户ID
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @param limit 关键词数量限制
+     * @return 关键词及其频率的列表
+     */
+    List<Map<String, Object>> getKeywordCloudData(String userId, LocalDateTime startDate, LocalDateTime endDate, Integer limit);
 } 

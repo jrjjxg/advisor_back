@@ -163,6 +163,13 @@
             <artifactId>spring-boot-devtools</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <dependency>
+            <groupId>com.baidu.aip</groupId>
+            <artifactId>java-sdk</artifactId>
+            <version>4.16.19</version>
+        </dependency>
+
     </dependencies>
 
     <dependencyManagement>

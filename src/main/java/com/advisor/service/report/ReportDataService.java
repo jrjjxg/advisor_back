@@ -25,9 +25,5 @@ public interface ReportDataService {
      * 获取测试结果数据
      */
     TestResultDataVO getTestResultData(String userId, LocalDateTime startDate, LocalDateTime endDate);
-    
-    /**
-     * 获取关键词云数据
-     */
-    List<Map<String, Object>> getKeywordCloudData(String userId, LocalDateTime startDate, LocalDateTime endDate);
+
 } 

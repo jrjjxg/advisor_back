@@ -26,4 +26,10 @@ public class Journal {
     // 新增字段
     private String imageUrls;   // 图片URL列表，JSON数组格式
     private Integer imageCount; // 图片数量
+    private String emotionType; // 情感类型
+    private Double emotionProb; // 情感概率
+    private String emotionSubtype; // 子情感类型
+    private Double emotionSubtypeProb; // 子情感概率
+    private LocalDateTime emotionAnalysisTime; // 情感分析时间
+    private String emotionAnalysisResult; // 情感分析结果
 } 
