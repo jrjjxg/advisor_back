@@ -1,128 +1,75 @@
-package com.advisor.controller.app;
+package com.advisor.controller.app; // 或者 com.advisor.controller.app
 
 import com.advisor.common.Result;
 import com.advisor.service.media.MediaCategoryService;
 import com.advisor.service.media.MediaResourceService;
-import com.advisor.service.media.UserMediaFavoriteService;
-import com.advisor.service.media.UserMediaHistoryService;
-import com.advisor.util.UserUtil;
+import com.advisor.vo.media.MediaCategoryVO;
+import com.advisor.vo.media.MediaResourceVO;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
- * 媒体资源前端API控制器
+ * 用户端媒体资源接口
  */
 @RestController
-@RequestMapping("/api/media")
-public class MediaController {
-    
-    @Autowired
-    private MediaCategoryService mediaCategoryService;
-    
+@RequestMapping("/api/videos") // 与前端 api/video.js 路径保持一致
+public class MediaController { // 或 VideoController
+
     @Autowired
     private MediaResourceService mediaResourceService;
-    
+
     @Autowired
-    private UserMediaHistoryService userMediaHistoryService;
-    
-    @Autowired
-    private UserMediaFavoriteService userMediaFavoriteService;
-    
+    private MediaCategoryService mediaCategoryService; // 注入 Category Service
+
     /**
-     * 获取媒体分类列表
+     * 根据分类获取App端媒体资源列表（主要用于音频）
+     *
+     * @param categoryId 分类ID
+     * @param pageNum    页码
+     * @param pageSize   每页数量
+     * @return 分页的媒体资源列表
      */
-    @GetMapping("/categories")
-    public Result getCategories(@RequestParam Integer mediaType) {
-        return Result.success(mediaCategoryService.getCategoryListByType(mediaType));
-    }
-    
-    /**
-     * 获取媒体资源列表
-     */
-    @GetMapping("/resources")
-    public Result getMediaResources(
-            @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "10") int pageSize,
-            @RequestParam(required = false) String categoryId,
-            @RequestParam(required = false) Integer mediaType) {
-        // TODO: 实现获取媒体资源列表逻辑
-        return Result.success();
-    }
-    
-    /**
-     * 获取媒体资源详情
-     */
-    @GetMapping("/resource/{id}")
-    public Result getMediaResource(@PathVariable String id) {
-        // TODO: 实现获取媒体资源详情逻辑
-        return Result.success();
-    }
-    
-    /**
-     * 收藏/取消收藏媒体资源
-     */
-    @PostMapping("/favorite/{id}")
-    public Result toggleFavorite(@PathVariable String id) {
-        String userId = UserUtil.getCurrentUserId();
-        // TODO: 实现收藏/取消收藏逻辑
-        return Result.success();
-    }
-    
-    /**
-     * 检查是否收藏
-     */
-    @GetMapping("/favorite/check/{id}")
-    public Result checkFavorite(@PathVariable String id) {
-        String userId = UserUtil.getCurrentUserId();
-        // TODO: 实现检查是否收藏逻辑
-        return Result.success();
-    }
-    
-    /**
-     * 获取收藏列表
-     */
-    @GetMapping("/favorites")
-    public Result getFavorites(
+    @GetMapping("/category")
+    public Result getPublishedMediaByCategory(
+            @RequestParam String categoryId, // 分类ID是必须的
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
-        String userId = UserUtil.getCurrentUserId();
-        // TODO: 实现获取收藏列表逻辑
-        return Result.success();
+        try {
+            // 调用新的 Service 方法，明确获取已发布的音频
+            Page<MediaResourceVO> page = mediaResourceService.getPublishedAudiosByCategory(
+                    pageNum, pageSize, categoryId);
+            return Result.success(page);
+        } catch (Exception e) {
+            // Log the error e
+            return Result.fail("获取资源列表失败");
+        }
     }
-    
+
     /**
-     * 记录播放进度
+     * 获取媒体资源详情 (复用admin的逻辑，但可单独拿出)
+     * @param id 资源ID
+     * @return 资源详情
      */
-    @PostMapping("/history/progress")
-    public Result recordProgress(
-            @RequestParam String mediaId,
-            @RequestParam Integer progress,
-            @RequestParam(defaultValue = "0") Integer isCompleted) {
-        String userId = UserUtil.getCurrentUserId();
-        // TODO: 实现记录播放进度逻辑
-        return Result.success();
+    @GetMapping("/{id}")
+    public Result getMediaResourceDetail(@PathVariable String id) {
+        try {
+            // 注意：这里可以增加用户ID参数，用于记录播放历史或个性化推荐
+            MediaResourceVO vo = mediaResourceService.getMediaResourceDetail(id, /* 可选：userId */ null);
+            if (vo == null || vo.getStatus() != 1) { // 确保只返回已发布的
+                return Result.fail("资源不存在或未发布");
+            }
+            // 可以在这里增加播放次数 (views++) 的逻辑，或者在 getMediaResourceDetail service内部处理
+            // mediaResourceService.incrementViewCount(id);
+            return Result.success(vo);
+        } catch (Exception e) {
+            // Log the error e
+            return Result.fail("获取资源详情失败");
+        }
     }
-    
-    /**
-     * 获取播放历史
-     */
-    @GetMapping("/history")
-    public Result getHistory(
-            @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "10") int pageSize) {
-        String userId = UserUtil.getCurrentUserId();
-        // TODO: 实现获取播放历史逻辑
-        return Result.success();
-    }
-    
-    /**
-     * 获取推荐媒体
-     */
-    @GetMapping("/recommendations")
-    public Result getRecommendations(
-            @RequestParam(defaultValue = "5") int limit,
-            @RequestParam(required = false) Integer mediaType) {
-        // TODO: 实现获取推荐媒体逻辑
-        return Result.success();
-    }
-} 
+
+
+
+}

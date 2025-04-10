@@ -67,6 +67,17 @@ public class TestController {
     @GetMapping("/{testTypeId}/questions")
     public Result<List<QuestionVO>> getTestQuestions(@PathVariable String testTypeId) {
         List<QuestionVO> questions = testService.getTestQuestions(testTypeId);
+        // 添加调试日志
+        System.out.println("返回的测试问题: " + questions.size() + " 个");
+        for (QuestionVO q : questions) {
+            System.out.println("问题: id=" + q.getId() + ", 内容=" + q.getContent() + ", question=" + q.getQuestion());
+            System.out.println("  选项数量: " + (q.getOptions() != null ? q.getOptions().size() : 0));
+            if (q.getOptions() != null) {
+                for (int i = 0; i < q.getOptions().size(); i++) {
+                    System.out.println("  选项" + (i+1) + ": " + q.getOptions().get(i).getContent());
+                }
+            }
+        }
         return Result.success(questions);
     }
 
@@ -117,7 +128,10 @@ public class TestController {
         if (questionVO.getContent() == null || questionVO.getContent().isEmpty()) {
             return Result.fail("题目内容不能为空");
         }
-        if (questionVO.getOptions() == null || questionVO.getOptions().isEmpty()) {
+        
+        // 检查是否需要验证选项
+        boolean needOptions = questionVO.getOptionTemplateId() == null || questionVO.getOptionTemplateId().isEmpty();
+        if (needOptions && (questionVO.getOptions() == null || questionVO.getOptions().isEmpty())) {
             return Result.fail("题目选项不能为空");
         }
 
@@ -298,7 +312,9 @@ public class TestController {
         }
 
         try {
-            QuestionVO savedQuestion = testService.createQuestionWithTemplate(questionVO, templateId);
+            // 设置模板ID
+            questionVO.setOptionTemplateId(templateId);
+            QuestionVO savedQuestion = testService.saveQuestion(questionVO);
             return Result.success(savedQuestion);
         } catch (Exception e) {
             return Result.fail("创建题目失败: " + e.getMessage());

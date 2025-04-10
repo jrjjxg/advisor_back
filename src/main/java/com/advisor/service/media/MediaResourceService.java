@@ -77,6 +77,15 @@ public interface MediaResourceService {
                                              Integer status, String userId);
     
     /**
+     * 根据分类获取已发布的音频资源
+     * @param pageNum 页码
+     * @param pageSize 每页大小
+     * @param categoryId 分类ID
+     * @return 分页的音频资源列表
+     */
+    Page<MediaResourceVO> getPublishedAudiosByCategory(int pageNum, int pageSize, String categoryId);
+    
+    /**
      * 更新媒体资源状态
      * @param id 资源ID
      * @param status 状态
@@ -104,4 +113,13 @@ public interface MediaResourceService {
      * @return 完整URL
      */
     String getMediaResourceUrl(String resourceUrl);
+    
+    /**
+     * 保存媒体播放进度
+     * @param userId 用户ID
+     * @param mediaId 媒体资源ID
+     * @param progress 播放进度（秒）
+     * @param completed 是否已完成播放
+     */
+    void saveProgress(String userId, String mediaId, Integer progress, Boolean completed);
 } 

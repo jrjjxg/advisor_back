@@ -105,10 +105,31 @@ public class TestServiceImpl implements TestService {
                     .collect(Collectors.groupingBy(TemplateOption::getTemplateId)));
         }
 
+        // 获取常规问题的选项
+        List<String> questionIds = questions.stream()
+                .filter(q -> q.getOptionTemplateId() == null || q.getOptionTemplateId().isEmpty())
+                .map(TestQuestion::getId)
+                .collect(Collectors.toList());
+        
+        Map<String, List<QuestionOption>> questionOptionsMap = new HashMap<>();
+        if (!questionIds.isEmpty()) {
+            List<QuestionOption> allOptions = questionOptionMapper.selectList(
+                    new LambdaQueryWrapper<QuestionOption>()
+                            .in(QuestionOption::getQuestionId, questionIds)
+                            .orderByAsc(QuestionOption::getOrderNum)
+            );
+            
+            questionOptionsMap.putAll(allOptions.stream()
+                    .collect(Collectors.groupingBy(QuestionOption::getQuestionId)));
+        }
+
         // 构建问题VO
         return questions.stream().map(q -> {
             final QuestionVO vo = new QuestionVO();
             BeanUtils.copyProperties(q, vo);
+            
+            // 确保question字段正确设置
+            vo.setQuestion(q.getContent());
 
             // 为每个问题创建一个新的选项列表变量
             final List<QuestionOptionVO> optionVOs = new ArrayList<>();
@@ -123,6 +144,16 @@ public class TestServiceImpl implements TestService {
                     QuestionOptionVO optionVO = new QuestionOptionVO();
                     optionVO.setContent(option.getContent());
                     optionVO.setScore(option.getScore());
+                    return optionVO;
+                }).collect(Collectors.toList()));
+            } else {
+                // 获取常规选项
+                final List<QuestionOption> options = questionOptionsMap.getOrDefault(q.getId(), Collections.emptyList());
+                
+                // 将常规选项转换为问题选项VO
+                optionVOs.addAll(options.stream().map(option -> {
+                    QuestionOptionVO optionVO = new QuestionOptionVO();
+                    BeanUtils.copyProperties(option, optionVO);
                     return optionVO;
                 }).collect(Collectors.toList()));
             }
@@ -162,20 +193,40 @@ public class TestServiceImpl implements TestService {
             questionMap.put("q" + (i + 1), questions.get(i));
         }
 
-        // 获取所有问题的选项
-        List<String> questionIds = questions.stream()
+        // 获取所有问题的选项（非模板选项）
+        List<String> regularQuestionIds = questions.stream()
+                .filter(q -> q.getOptionTemplateId() == null || q.getOptionTemplateId().isEmpty())
                 .map(TestQuestion::getId)
                 .collect(Collectors.toList());
 
-        List<QuestionOption> allOptions = questionOptionMapper.selectList(
-                new LambdaQueryWrapper<QuestionOption>()
-                        .in(QuestionOption::getQuestionId, questionIds)
-                        .orderByAsc(QuestionOption::getOrderNum)
-        );
+        Map<String, List<QuestionOption>> optionsMap = new HashMap<>();
+        if (!regularQuestionIds.isEmpty()) {
+            List<QuestionOption> allOptions = questionOptionMapper.selectList(
+                    new LambdaQueryWrapper<QuestionOption>()
+                            .in(QuestionOption::getQuestionId, regularQuestionIds)
+                            .orderByAsc(QuestionOption::getOrderNum)
+            );
+            optionsMap.putAll(allOptions.stream()
+                    .collect(Collectors.groupingBy(QuestionOption::getQuestionId)));
+        }
 
-        // 创建问题ID到选项列表的映射
-        Map<String, List<QuestionOption>> optionsMap = allOptions.stream()
-                .collect(Collectors.groupingBy(QuestionOption::getQuestionId));
+        // 获取所有问题的模板选项
+        List<String> templateIds = questions.stream()
+                .filter(q -> q.getOptionTemplateId() != null && !q.getOptionTemplateId().isEmpty())
+                .map(TestQuestion::getOptionTemplateId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<String, List<TemplateOption>> templateOptionsMap = new HashMap<>();
+        if (!templateIds.isEmpty()) {
+            List<TemplateOption> allTemplateOptions = templateOptionMapper.selectList(
+                    new LambdaQueryWrapper<TemplateOption>()
+                            .in(TemplateOption::getTemplateId, templateIds)
+                            .orderByAsc(TemplateOption::getOrderNum)
+            );
+            templateOptionsMap.putAll(allTemplateOptions.stream()
+                    .collect(Collectors.groupingBy(TemplateOption::getTemplateId)));
+        }
 
         for (Map.Entry<String, String> entry : answers.entrySet()) {
             String frontendQuestionId = entry.getKey(); // 如 q1, q2, ...
@@ -184,46 +235,58 @@ public class TestServiceImpl implements TestService {
             // 获取实际问题对象
             TestQuestion question = questionMap.get(frontendQuestionId);
             if (question == null) {
-                System.out.println("Question not found for frontendQuestionId: " + frontendQuestionId);
+                log.error("Question not found for frontendQuestionId: {}", frontendQuestionId);
                 continue;
             }
 
-            // 获取问题的所有选项
-            List<QuestionOption> options = optionsMap.get(question.getId());
-            if (options == null || options.isEmpty()) {
-                System.out.println("No options found for questionId: " + question.getId());
-                continue;
-            }
-
-            // 根据选项索引获取选项
             int optionIndex = Integer.parseInt(optionIndexStr);
-            if (optionIndex < 0 || optionIndex >= options.size()) {
-                System.out.println("Invalid option index: " + optionIndex + " for questionId: " + question.getId());
-                continue;
-            }
+            int optionScore = 0;
+            String optionId = null;
 
-            QuestionOption option = options.get(optionIndex);
-
-            // 查询选项得分
-            if (option != null) {
-                System.out.println("Option found - Score: " + option.getScore());
-                totalScore += option.getScore();
-
-                // 创建用户答案记录
-                UserAnswer userAnswer = new UserAnswer();
-                userAnswer.setId(UUID.randomUUID().toString());
-                userAnswer.setTestResultId(testResult.getId());
-                userAnswer.setQuestionId(question.getId());
-                userAnswer.setOptionId(option.getId());
-                userAnswer.setScore(option.getScore());
-
-                userAnswers.add(userAnswer);
+            // 根据是否使用模板选项来获取得分
+            if (question.getOptionTemplateId() != null && !question.getOptionTemplateId().isEmpty()) {
+                // 使用模板选项
+                List<TemplateOption> templateOptions = templateOptionsMap.getOrDefault(
+                        question.getOptionTemplateId(), Collections.emptyList());
+                
+                if (optionIndex >= 0 && optionIndex < templateOptions.size()) {
+                    TemplateOption option = templateOptions.get(optionIndex);
+                    optionScore = option.getScore();
+                    optionId = option.getId(); // 使用模板选项ID
+                    totalScore += optionScore;
+                    log.info("Template option - Score: {}", optionScore);
+                } else {
+                    log.error("Invalid template option index: {} for question: {}", optionIndex, question.getId());
+                    continue;
+                }
             } else {
-                System.out.println("Option not found for id: " + option.getId());
+                // 使用常规选项
+                List<QuestionOption> options = optionsMap.getOrDefault(question.getId(), Collections.emptyList());
+                
+                if (optionIndex >= 0 && optionIndex < options.size()) {
+                    QuestionOption option = options.get(optionIndex);
+                    optionScore = option.getScore();
+                    optionId = option.getId();
+                    totalScore += optionScore;
+                    log.info("Regular option - Score: {}", optionScore);
+                } else {
+                    log.error("Invalid option index: {} for question: {}", optionIndex, question.getId());
+                    continue;
+                }
             }
+
+            // 创建用户答案记录
+            UserAnswer userAnswer = new UserAnswer();
+            userAnswer.setId(UUID.randomUUID().toString());
+            userAnswer.setTestResultId(testResult.getId());
+            userAnswer.setQuestionId(question.getId());
+            userAnswer.setOptionId(optionId);
+            userAnswer.setScore(optionScore);
+
+            userAnswers.add(userAnswer);
         }
 
-        System.out.println("Final total score: " + totalScore);
+        log.info("Final total score: {}", totalScore);
 
         // 3. 设置最终得分和结果
         testResult.setTotalScore(totalScore);
@@ -365,6 +428,17 @@ public class TestServiceImpl implements TestService {
     @Override
     @Transactional
     public QuestionVO saveQuestion(QuestionVO questionVO) {
+        // 检查是否使用了模板ID
+        if (questionVO.getOptionTemplateId() != null && !questionVO.getOptionTemplateId().isEmpty()) {
+            // 获取模板详情并应用模板选项
+            OptionTemplateVO template = getOptionTemplateDetail(questionVO.getOptionTemplateId());
+            if (template == null) {
+                throw new RuntimeException("选项模板不存在");
+            }
+            // 设置问题的选项为模板选项（前端不需要传选项）
+            questionVO.setOptions(template.getOptions());
+        }
+        
         // 1. 保存题目基本信息
         TestQuestion question = new TestQuestion();
         if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
@@ -388,10 +462,38 @@ public class TestServiceImpl implements TestService {
         // 保存或更新题目
         if (questionVO.getId() != null && !questionVO.getId().isEmpty()) {
             testQuestionMapper.updateById(question);
+            
+            // 如果是更新，删除原有选项
+            if (questionVO.getOptionTemplateId() == null || questionVO.getOptionTemplateId().isEmpty()) {
+                // 只有非模板题目才需要删除原有选项
+                questionOptionMapper.delete(
+                    new LambdaQueryWrapper<QuestionOption>()
+                        .eq(QuestionOption::getQuestionId, question.getId())
+                );
+            }
         } else {
             testQuestionMapper.insert(question);
             // 更新测试类型的题目数量
             updateTestTypeQuestionCount(question.getTestTypeId(), 1);
+        }
+        
+        // 2. 保存问题选项
+        if (questionVO.getOptions() != null && !questionVO.getOptions().isEmpty()) {
+            // 如果是非模板题目或编辑模式，才需要保存选项
+            if (questionVO.getOptionTemplateId() == null || questionVO.getOptionTemplateId().isEmpty()) {
+                for (int i = 0; i < questionVO.getOptions().size(); i++) {
+                    QuestionOptionVO optionVO = questionVO.getOptions().get(i);
+                    QuestionOption option = new QuestionOption();
+                    option.setId(UUID.randomUUID().toString().replace("-", ""));
+                    option.setQuestionId(question.getId());
+                    option.setContent(optionVO.getContent());
+                    option.setScore(optionVO.getScore() != null ? optionVO.getScore() : 0);
+                    option.setOrderNum(i + 1);
+                    option.setCreateTime(LocalDateTime.now());
+                    option.setUpdateTime(LocalDateTime.now());
+                    questionOptionMapper.insert(option);
+                }
+            }
         }
 
         // 返回保存后的完整题目信息

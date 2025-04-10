@@ -11,6 +11,7 @@ public class QuestionVO {
     private String id;
     private String testTypeId;
     private String content;
+    private String question;
     private Integer orderNum;
     private Integer optionType;
     private String optionTemplateId;
