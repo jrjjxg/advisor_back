@@ -104,12 +104,16 @@ qiniu:
   bucket: myai-resource
   domain: http://su5mwlhe1.hb-bkt.clouddn.com
 
-# 添加到您现有的application.yml
+  
 dashscope:
+  api-key: sk-52fed3345ebb41d3bb0c003d79d7cca9
 
-
-
-emotion.recognition.api.url: http://localhost:5000
+# 语音识别配置
+voice:
+  recognition:
+    enabled: true
+    max-size: 20971520  # 20MB，语音文件最大大小
+    upload-dir: voice/  # 七牛云存储中的目录
 
 # 聊天机器人API配置
 chatbot:
@@ -120,6 +124,11 @@ chatbot:
 agent:
   api:
     url: http://localhost:5000
+
+emotion:
+  recognition:
+    api:
+      url: http://localhost:5000
 
 baidu:
   aip:

@@ -56,4 +56,17 @@ public class FileUploadController {
             return Result.fail("上传失败：" + e.getMessage());
         }
     }
+    
+    @PostMapping("/audio")
+    public Result<String> uploadAudio(@RequestParam("file") MultipartFile file) throws IOException {
+        try {
+            log.info("接收到音频上传请求，文件名: {}, 大小: {}", file.getOriginalFilename(), file.getSize());
+            String fileUrl = fileService.uploadFile(file, "voice");
+            log.info("音频上传成功，七牛云返回URL: {}", fileUrl);
+            return Result.success(fileUrl);
+        } catch (IOException e) {
+            log.error("上传音频失败", e);
+            return Result.fail("上传失败：" + e.getMessage());
+        }
+    }
 }

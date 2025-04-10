@@ -1,0 +1,26 @@
+-- 语音分析记录表
+CREATE TABLE IF NOT EXISTS `voice_analysis` (
+    `id` varchar(36) NOT NULL COMMENT '主键ID',
+    `user_id` varchar(36) NOT NULL COMMENT '用户ID',
+    `audio_url` varchar(255) NOT NULL COMMENT '录音文件URL',
+    `raw_text` text DEFAULT NULL COMMENT '识别的原始文本内容(包含情感和事件标记)',
+    `transcription` text DEFAULT NULL COMMENT '识别的纯文本内容(已去除标记)',
+    `dominant_emotion` varchar(50) DEFAULT NULL COMMENT '主要情感类型(ANGRY、HAPPY、SAD、NEUTRAL)',
+    `audio_events_json` text DEFAULT NULL COMMENT '检测到的音频事件JSON',
+    `duration` bigint DEFAULT NULL COMMENT '语音时长（毫秒）',
+    `language_code` varchar(10) DEFAULT 'zh' COMMENT '语言代码',
+    `raw_result_json` text DEFAULT NULL COMMENT '原始结果JSON',
+    `sentences_json` text DEFAULT NULL COMMENT '分句信息JSON',
+    `task_id` varchar(100) NOT NULL COMMENT '阿里云任务ID',
+    `journal_id` varchar(36) DEFAULT NULL COMMENT '关联日记ID',
+    `mood_id` varchar(36) DEFAULT NULL COMMENT '关联情绪记录ID',
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否删除(0-未删除,1-已删除)',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_task_id` (`task_id`),
+    KEY `idx_journal_id` (`journal_id`),
+    KEY `idx_mood_id` (`mood_id`),
+    KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='语音分析记录表'; 
