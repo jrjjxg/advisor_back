@@ -7,6 +7,7 @@ import com.advisor.service.mood.MoodService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -17,21 +18,15 @@ import java.util.Map;
 @RequestMapping("/api/moods")
 public class MoodController {
     
-    private static final String DEFAULT_USER_ID = "test_user_001";
     
     @Autowired
     private MoodService moodService;
     
-    // 获取有效的用户ID，如果为空则使用默认值
-    private String getEffectiveUserId(String userId) {
-        return userId != null ? userId : DEFAULT_USER_ID;
-    }
-    
+
     @PostMapping
     public Result<MoodRecordDTO> createMoodRecord(
             @RequestHeader("userId") String userId,
             @RequestBody MoodRecordDTO moodDTO) {
-        userId = getEffectiveUserId(userId);
         moodDTO.setUserId(userId);
         MoodRecordDTO created = moodService.createMoodRecord(moodDTO);
         return Result.success(created);
@@ -41,7 +36,7 @@ public class MoodController {
     public Result<MoodRecordDTO> getMoodRecord(
             @RequestHeader(value = "userId", required = false) String userId,
             @PathVariable Long id) {
-        userId = getEffectiveUserId(userId);
+     
         MoodRecordDTO mood = moodService.getMoodRecord(id);
         if (mood == null) {
             return Result.fail("情绪记录不存在");
@@ -54,7 +49,7 @@ public class MoodController {
             @RequestHeader("userId") String userId,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
-        userId = getEffectiveUserId(userId);
+
         Page<MoodRecordDTO> page = moodService.getUserMoodHistory(userId, pageNum, pageSize);
         return Result.success(page);
     }
@@ -64,7 +59,6 @@ public class MoodController {
             @RequestHeader("userId") String userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        userId = getEffectiveUserId(userId);
         List<MoodRecordDTO> moods = moodService.getUserMoodByDateRange(userId, startDate, endDate);
         return Result.success(moods);
     }
@@ -74,8 +68,7 @@ public class MoodController {
             @RequestHeader("userId") String userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        
-        userId = getEffectiveUserId(userId);
+
         
         if (startDate == null) {
             startDate = LocalDate.now().minusMonths(1);
@@ -110,9 +103,14 @@ public class MoodController {
             @RequestHeader(value = "userId", required = false) String userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        
-        userId = getEffectiveUserId(userId);
+
         MoodShareCardDTO shareCard = moodService.generateMoodShareCard(userId, startDate, endDate);
         return Result.success(shareCard);
+    }
+    
+    @GetMapping("/weekly-mood")
+    public Result<Map<String, Object>> getWeeklyMoodStats(@RequestHeader(value = "userId", required = false) String userId) {
+        Map<String, Object> weeklyStats = moodService.getWeeklyMoodStats(userId);
+        return Result.success(weeklyStats);
     }
 }

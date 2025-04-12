@@ -8,4 +8,5 @@ public class ThreadRequest {
     private String title;
     private String createdAt;
     private String lastMessagePreview;
+    private String systemPrompt;
 } 

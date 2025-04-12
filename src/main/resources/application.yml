@@ -12,7 +12,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://127.0.0.1:3306/ai?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&allowMultiQueries=true
+    url: jdbc:mysql://127.0.0.1:3306/ai?useUnicode=true&characterEncoding=utf-8&useSSL=false&allowPublicKeyRetrieval=true&allowMultiQueries=true&tinyInt1isBit=false
     username: root
     password: 123456
   jackson:
@@ -104,7 +104,6 @@ qiniu:
   bucket: myai-resource
   domain: http://su5mwlhe1.hb-bkt.clouddn.com
 
-  
 dashscope:
   api-key: sk-52fed3345ebb41d3bb0c003d79d7cca9
 
@@ -112,8 +111,8 @@ dashscope:
 voice:
   recognition:
     enabled: true
-    max-size: 20971520  # 20MB，语音文件最大大小
-    upload-dir: voice/  # 七牛云存储中的目录
+    max-size: 20971520 # 20MB，语音文件最大大小
+    upload-dir: voice/ # 七牛云存储中的目录
 
 # 聊天机器人API配置
 chatbot:

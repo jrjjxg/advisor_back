@@ -19,8 +19,12 @@ import java.util.Map;
 public interface MoodRecordMapper extends BaseMapper<MoodRecord> {
     
     @Select("SELECT emotion_type, COUNT(*) as count FROM mood_record " +
-           "WHERE user_id = #{userId} GROUP BY emotion_type")
-    List<Map<String, Object>> countEmotionTypesByUserId(@Param("userId") String userId);
+           "WHERE user_id = #{userId} AND create_time BETWEEN #{startTime} AND #{endTime} " +
+           "GROUP BY emotion_type")
+    List<Map<String, Object>> countEmotionTypesByUserId(
+        @Param("userId") String userId,
+        @Param("startTime") LocalDateTime startTime,
+        @Param("endTime") LocalDateTime endTime);
     
     @Select("SELECT AVG(intensity) FROM mood_record " +
            "WHERE user_id = #{userId} AND create_time BETWEEN #{startTime} AND #{endTime}")
@@ -53,4 +57,14 @@ public interface MoodRecordMapper extends BaseMapper<MoodRecord> {
     List<Map<String, Object>> getCommonEmotionTags(@Param("userId") String userId, 
                                                   @Param("startDate") LocalDateTime startDate, 
                                                   @Param("endDate") LocalDateTime endDate);
+
+    @Select("SELECT id, user_id, emotion_type, intensity, create_time " +
+            "FROM mood_record " +
+            "WHERE user_id = #{userId} " +
+            "AND create_time BETWEEN #{startDate} AND #{endDate} " +
+            "ORDER BY create_time")
+    List<Map<String, Object>> getMoodRecordsByDateRange(
+        @Param("userId") String userId, 
+        @Param("startDate") LocalDateTime startDate, 
+        @Param("endDate") LocalDateTime endDate);
 }

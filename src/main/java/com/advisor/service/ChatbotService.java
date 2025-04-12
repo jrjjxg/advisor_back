@@ -14,7 +14,7 @@ public interface ChatbotService {
     /**
      * 创建新的聊天线程
      */
-    String createThread(String userId, String title);
+    String createThread(String userId, String title, String systemPrompt);
     
     /**
      * 获取用户的所有聊天线程

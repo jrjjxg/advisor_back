@@ -25,4 +25,6 @@ public interface MoodService {
     List<String> getAllTags();
     
     MoodShareCardDTO generateMoodShareCard(String userId, LocalDate startDate, LocalDate endDate);
+    
+    Map<String, Object> getWeeklyMoodStats(String userId);
 }

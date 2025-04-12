@@ -13,11 +13,12 @@ import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chatbot")
@@ -141,7 +142,13 @@ public class ChatbotController {
             
             logger.info("创建聊天线程: userId={}, title={}", userId, request.getTitle());
             
-            String threadId = chatbotService.createThread(userId, request.getTitle());
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("userId", userId);
+            requestBody.put("title", request.getTitle());
+            if (request.getSystemPrompt() != null) {
+                requestBody.put("systemPrompt", request.getSystemPrompt());
+            }
+            String threadId = chatbotService.createThread(userId, request.getTitle(), request.getSystemPrompt());
             return Result.success(threadId);
         } catch (Exception e) {
             logger.error("创建线程异常", e);

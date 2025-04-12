@@ -73,12 +73,15 @@ public class ChatbotServiceImpl implements ChatbotService {
     }
     
     @Override
-    public String createThread(String userId, String title) {
+    public String createThread(String userId, String title, String systemPrompt) {
         logger.info("创建AI对话线程: userId={}, title={}", userId, title);
         
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("userId", userId);
         requestBody.put("title", title);
+        if (systemPrompt != null) {
+            requestBody.put("systemPrompt", systemPrompt);
+        }
         
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -159,27 +162,5 @@ public class ChatbotServiceImpl implements ChatbotService {
             // 忽略异常，不中断流程
         }
     }
-    
-    public boolean handleConfirmation(String userId, String threadId, String response) {
-        // 构建请求
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("userId", userId);
-        requestBody.put("threadId", threadId);
-        requestBody.put("response", response);
-        
-        // 设置请求头
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
-        
-        try {
-            // 调用Python服务的API
-            String fullUrl = chatbotApiUrl + "/api/confirm";
-            return restTemplate.postForObject(fullUrl, request, Boolean.class);
-        } catch (Exception e) {
-            logger.error("处理确认失败: " + e.getMessage(), e);
-            return false;
-        }
-    }
+
 }

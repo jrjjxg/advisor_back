@@ -153,12 +153,19 @@ public class MoodServiceImpl implements MoodService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
         
+        // 添加调试日志
+        System.out.println("分析日期范围: " + startDateTime + " 至 " + endDateTime);
+        
         // 获取平均情绪强度
         Double avgIntensity = moodRecordMapper.getAverageIntensityByUserIdAndDateRange(
             userId, startDateTime, endDateTime);
         
-        // 获取情绪类型统计
-        List<Map<String, Object>> emotionStatsList = moodRecordMapper.countEmotionTypesByUserId(userId);
+        // 获取情绪类型统计 - 修改这一行，传递日期范围参数
+        List<Map<String, Object>> emotionStatsList = moodRecordMapper.countEmotionTypesByUserId(
+            userId, startDateTime, endDateTime);
+        
+        // 输出调试信息
+        System.out.println("情绪统计结果: " + emotionStatsList);
         
         // 转换为前端需要的格式
         Map<String, Long> emotionStats = new HashMap<>();
@@ -287,5 +294,92 @@ public class MoodServiceImpl implements MoodService {
             .emotionDistribution(emotionDistribution)
             .moodTrend(moodTrend)
             .build();
+}
+
+@Override
+public Map<String, Object> getWeeklyMoodStats(String userId) {
+    // 获取最近7天的日期
+    LocalDate endDate = LocalDate.now();
+    LocalDate startDate = endDate.minusDays(6);
+    
+    LocalDateTime startDateTime = startDate.atStartOfDay();
+    LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+    
+    // 获取最近7天的所有情绪记录
+    List<Map<String, Object>> moodRecords = moodRecordMapper.getMoodRecordsByDateRange(
+        userId, startDateTime, endDateTime);
+    
+    // 按日期分组情绪数据
+    Map<LocalDate, Map<String, Integer>> dailyEmotions = new HashMap<>();
+    
+    // 初始化每天数据
+    for (int i = 0; i < 7; i++) {
+        LocalDate date = startDate.plusDays(i);
+        dailyEmotions.put(date, new HashMap<>());
+    }
+    
+    // 统计每天每种情绪的强度总和
+    for (Map<String, Object> record : moodRecords) {
+        LocalDateTime createTime = (LocalDateTime) record.get("create_time");
+        LocalDate recordDate = createTime.toLocalDate();
+        String emotionType = (String) record.get("emotion_type");
+        
+        // 修复这一行 - 正确获取intensity并做类型转换
+        Object intensityObj = record.get("intensity");
+        Integer intensity = 0;
+        if (intensityObj instanceof Integer) {
+            intensity = (Integer) intensityObj;
+        } else if (intensityObj instanceof Number) {
+            intensity = ((Number) intensityObj).intValue();
+        } else if (intensityObj instanceof Boolean) {
+            // 如果是布尔值，转为0或1
+            intensity = ((Boolean) intensityObj) ? 1 : 0;
+        } else if (intensityObj instanceof String) {
+            // 如果是字符串，尝试解析为整数
+            try {
+                intensity = Integer.parseInt((String) intensityObj);
+            } catch (NumberFormatException e) {
+                intensity = 0;
+            }
+        }
+        
+        Map<String, Integer> dayEmotions = dailyEmotions.get(recordDate);
+        if (dayEmotions != null) {
+            dayEmotions.put(emotionType, 
+                dayEmotions.getOrDefault(emotionType, 0) + intensity);
+        }
+    }
+    
+    // 对每天选取最高强度的情绪
+    List<Map<String, Object>> result = new ArrayList<>();
+    String[] dayOfWeek = {"一", "二", "三", "四", "五", "六", "日"};
+    
+    for (int i = 0; i < 7; i++) {
+        LocalDate date = startDate.plusDays(i);
+        Map<String, Integer> dayEmotions = dailyEmotions.get(date);
+        
+        // 查找强度最高的情绪
+        String dominantEmotion = null;
+        int maxIntensity = 0;
+        
+        for (Map.Entry<String, Integer> entry : dayEmotions.entrySet()) {
+            if (entry.getValue() > maxIntensity) {
+                maxIntensity = entry.getValue();
+                dominantEmotion = entry.getKey();
+            }
+        }
+        
+        Map<String, Object> dayData = new HashMap<>();
+        dayData.put("date", date);
+        dayData.put("day", dayOfWeek[date.getDayOfWeek().getValue() - 1]);
+        dayData.put("emotion", dominantEmotion);
+        dayData.put("intensity", maxIntensity);
+        
+        result.add(dayData);
+    }
+    
+    Map<String, Object> weeklyStats = new HashMap<>();
+    weeklyStats.put("data", result);
+    return weeklyStats;
 }
 }
