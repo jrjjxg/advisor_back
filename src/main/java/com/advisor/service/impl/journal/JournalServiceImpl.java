@@ -535,4 +535,33 @@ public class JournalServiceImpl implements JournalService {
         
         return result;
     }
+
+    @Override
+    @Transactional
+    public void saveAiResponse(String journalId, String aiResponse, String userId) {
+        // 1. 验证日记是否存在以及用户权限
+        Journal journal = journalMapper.selectOne(Wrappers.<Journal>lambdaQuery()
+                .eq(Journal::getId, journalId)
+                .eq(Journal::getUserId, userId));
+
+        if (journal == null) {
+            // 可以选择抛出异常或静默失败，这里选择抛出异常
+            throw new ResourceNotFoundException("日记不存在或无权访问");
+        }
+
+        // 2. 创建只包含更新字段的Journal对象
+        Journal updateJournal = new Journal();
+        updateJournal.setId(journalId);
+        updateJournal.setAiCompanionResponse(aiResponse);
+        updateJournal.setUpdateTime(LocalDateTime.now()); // 更新修改时间
+
+        // 3. 更新数据库
+        int updatedRows = journalMapper.updateById(updateJournal);
+        
+        if (updatedRows == 0) {
+            // 更新失败，可能并发或其他问题
+            // 可以添加日志记录
+            System.err.println("Failed to save AI response for journal ID: " + journalId);
+        }
+    }
 } 

@@ -98,4 +98,12 @@ public interface JournalService {
      * @return 关键词及其频率的列表
      */
     List<Map<String, Object>> getKeywordCloudData(String userId, LocalDateTime startDate, LocalDateTime endDate, Integer limit);
+    
+    /**
+     * 保存AI伙伴的回复
+     * @param journalId 日记ID
+     * @param aiResponse AI回复内容
+     * @param userId 用户ID (用于权限校验)
+     */
+    void saveAiResponse(String journalId, String aiResponse, String userId);
 } 

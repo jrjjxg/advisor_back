@@ -32,4 +32,5 @@ public class Journal {
     private Double emotionSubtypeProb; // 子情感概率
     private LocalDateTime emotionAnalysisTime; // 情感分析时间
     private String emotionAnalysisResult; // 情感分析结果
+    private String aiCompanionResponse; // AI伙伴回复内容
 } 

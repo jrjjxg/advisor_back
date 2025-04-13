@@ -21,4 +21,6 @@ public class JournalVO {
     // 确保包含这些字段
     private String imageUrls;   // 图片URL列表，JSON数组格式
     private Integer imageCount; // 图片数量
+    
+    private String aiCompanionResponse; // AI伙伴回复内容
 } 

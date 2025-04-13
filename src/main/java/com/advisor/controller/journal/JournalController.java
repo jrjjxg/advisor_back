@@ -74,6 +74,7 @@ public class JournalController {
         // 确保图片URL和数量被正确复制
         vo.setImageUrls(journal.getImageUrls());
         vo.setImageCount(journal.getImageCount());
+        vo.setAiCompanionResponse(journal.getAiCompanionResponse());
         
         return Result.success(vo);
     }
@@ -138,5 +139,19 @@ public class JournalController {
         String userId = UserUtil.getCurrentUserId();
         List<JournalVO> journals = journalService.getJournalsByMoodId(moodId, userId);
         return Result.success(journals);
+    }
+
+    /**
+     * 保存AI伙伴的回复
+     */
+    @PostMapping("/{id}/save-ai-response")
+    public Result<Void> saveAiResponse(@PathVariable String id, @RequestBody Map<String, String> payload) {
+        String userId = UserUtil.getCurrentUserId();
+        String aiResponse = payload.get("aiResponse");
+        if (aiResponse == null) {
+            return Result.error("AI response content is required.");
+        }
+        journalService.saveAiResponse(id, aiResponse, userId);
+        return Result.success();
     }
 } 
