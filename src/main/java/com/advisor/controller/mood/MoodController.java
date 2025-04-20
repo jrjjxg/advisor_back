@@ -3,11 +3,13 @@ package com.advisor.controller.mood;
 import com.advisor.common.Result;
 import com.advisor.dto.MoodRecordDTO;
 import com.advisor.dto.MoodShareCardDTO;
+import com.advisor.dto.TagStatDTO;
 import com.advisor.service.mood.MoodService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -112,5 +114,32 @@ public class MoodController {
     public Result<Map<String, Object>> getWeeklyMoodStats(@RequestHeader(value = "userId", required = false) String userId) {
         Map<String, Object> weeklyStats = moodService.getWeeklyMoodStats(userId);
         return Result.success(weeklyStats);
+    }
+
+    @GetMapping("/tag-stats")
+    public Result getMoodTagStats(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestHeader("userId") String userId
+    ) {
+        // 1. 参数校验
+        if (!StringUtils.hasText(userId)) {
+            return Result.error("用户ID不能为空");
+        }
+        
+        // 2. 日期处理
+        LocalDate startLocalDate = null;
+        LocalDate endLocalDate = null;
+        if (StringUtils.hasText(startDate)) {
+            startLocalDate = LocalDate.parse(startDate);
+        }
+        if (StringUtils.hasText(endDate)) {
+            endLocalDate = LocalDate.parse(endDate);
+        }
+        
+        // 3. 查询标签统计数据
+        List<TagStatDTO> tagStats = moodService.getTagStats(userId, startLocalDate, endLocalDate);
+        
+        return Result.success(tagStats);
     }
 }

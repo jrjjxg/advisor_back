@@ -3,6 +3,7 @@ package com.advisor.service.impl;
 import com.advisor.dto.MoodRecordDTO;
 
 import com.advisor.dto.MoodShareCardDTO;
+import com.advisor.dto.TagStatDTO;
 import com.advisor.entity.mood.MoodRecord;
 import com.advisor.entity.mood.MoodRecordTag;
 import com.advisor.entity.mood.MoodTag;
@@ -11,6 +12,7 @@ import com.advisor.mapper.mood.MoodRecordTagMapper;
 import com.advisor.mapper.mood.MoodTagMapper;
 import com.advisor.service.mood.MoodService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -381,5 +383,11 @@ public Map<String, Object> getWeeklyMoodStats(String userId) {
     Map<String, Object> weeklyStats = new HashMap<>();
     weeklyStats.put("data", result);
     return weeklyStats;
+}
+
+@Override
+public List<TagStatDTO> getTagStats(String userId, LocalDate startDate, LocalDate endDate) {
+    // 直接调用自定义Mapper方法，不再使用QueryWrapper
+    return moodRecordTagMapper.selectTagStats(userId, startDate, endDate);
 }
 }

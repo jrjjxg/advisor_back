@@ -69,4 +69,17 @@ public class FileUploadController {
             return Result.fail("上传失败：" + e.getMessage());
         }
     }
+
+    @PostMapping("/driftbottle")
+    public Result<String> uploadDriftBottleImage(@RequestParam("file") MultipartFile file) throws IOException {
+        try {
+            log.info("接收到漂流瓶图片上传请求，文件名: {}, 大小: {}", file.getOriginalFilename(), file.getSize());
+            String fileUrl = fileService.uploadFile(file, "driftbottle");
+            log.info("漂流瓶图片上传成功，七牛云返回URL: {}", fileUrl);
+            return Result.success(fileUrl);
+        } catch (IOException e) {
+            log.error("上传漂流瓶图片失败", e);
+            return Result.fail("上传失败：" + e.getMessage());
+        }
+    }
 }

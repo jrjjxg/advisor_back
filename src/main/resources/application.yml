@@ -62,37 +62,6 @@ mybatis-plus:
       logic-delete-value: 1
       logic-not-delete-value: 0
 
-# 文件上传配置
-file:
-  upload:
-    path: D:/uploads
-    avatar:
-      path: ${file.upload.path}/avatars
-    community:
-      path: ${file.upload.path}/community
-  access:
-    url: http://localhost:9000/uploads
-    avatar:
-      url: ${file.access.url}/avatars
-    community:
-      url: ${file.access.url}/community
-
-# 是的，这些配置已经设置好了。让我解释一下这些配置：
-# 配置解释
-# 文件存储结构：
-# file.upload.path: D:/uploads - 这是所有上传文件的根目录
-# 在这个根目录下，有两个子目录：
-# avatars 文件夹：存储用户头像
-# community 文件夹：存储社区相关图片
-# ${file.upload.path}/avatars 的含义：
-# ${...} 是Spring的属性占位符语法
-# 它会引用前面定义的file.upload.path属性的值
-# 所以${file.upload.path}/avatars实际上等于D:/uploads/avatars
-# 这种写法的好处是：如果将来修改根目录，子目录会自动跟着变化
-# 访问URL结构：
-# file.access.url: http://localhost:9000/uploads - 这是访问文件的基础URL
-# ${file.access.url}/avatars 等于 http://localhost:9000/uploads/avatars
-# 这意味着存储在D:/uploads/avatars目录下的文件可以通过http://localhost:9000/uploads/avatars/文件名访问
 jwt:
   secret: your_jwt_secret_key_here_should_be_very_long_and_secure_12345678901234567890
   expiration: 86400000 # 24小时，单位毫秒

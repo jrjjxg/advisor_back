@@ -1,11 +1,16 @@
 package com.advisor.service;
 
 import com.advisor.entity.base.User;
+import com.baomidou.mybatisplus.extension.service.IService;
 
-public interface UserService {
+/**
+ * 用户服务接口
+ */
+public interface UserService extends IService<User> {
     void sendVerificationCode(String email);
     void register(String username, String password, String email, String code);
     User login(String username, String password);
+    User login(String username, String password, String ipAddress);
     User getUserByToken(String token);
     User getUserByUsername(String username);
     User getUserById(String userId);

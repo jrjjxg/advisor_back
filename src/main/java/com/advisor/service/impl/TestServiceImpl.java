@@ -9,6 +9,8 @@ import com.advisor.service.test.TestScoreLevelService;
 import com.advisor.service.test.TestService;
 import com.advisor.vo.test.*;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -544,17 +546,31 @@ public class TestServiceImpl implements TestService {
         if (testType == null) {
             return null;
         }
-        
+
         TestTypeVO vo = new TestTypeVO();
-        BeanUtils.copyProperties(testType, vo);
-        
+        BeanUtils.copyProperties(testType, vo); // 复制包括新增科普字段在内的大部分属性
+
         // 获取测试完成人数
         Integer testCount = testResultMapper.selectCount(
             new LambdaQueryWrapper<TestResult>()
                 .eq(TestResult::getTestTypeId, testType.getId())
         ).intValue();
         vo.setTestCount(testCount);
-        
+
+        // 处理 FAQ JSON 字段
+        if (testType.getFaq() != null && !testType.getFaq().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                List<Map<String, String>> faqList = objectMapper.readValue(testType.getFaq(), new TypeReference<List<Map<String, String>>>() {});
+                vo.setFaq(faqList);
+            } catch (Exception e) {
+                log.error("Failed to parse FAQ JSON for testType ID: {}", testType.getId(), e);
+                vo.setFaq(new ArrayList<>()); // 解析失败则设置为空列表
+            }
+        } else {
+            vo.setFaq(new ArrayList<>()); // 如果字段为空或null，设置为空列表
+        }
+
         return vo;
     }
 
@@ -914,6 +930,31 @@ public class TestServiceImpl implements TestService {
             testType.setImageUrl(testTypeVO.getImageUrl());
         }
         testType.setUpdateTime(LocalDateTime.now());
+        
+        // 设置科普字段
+        testType.setTheoreticalBasis(testTypeVO.getTheoreticalBasis());
+        testType.setApplicationScenarios(testTypeVO.getApplicationScenarios());
+        testType.setPrecautions(testTypeVO.getPrecautions());
+        testType.setDetailedInterpretation(testTypeVO.getDetailedInterpretation());
+        testType.setDevelopmentHistory(testTypeVO.getDevelopmentHistory());
+        testType.setRelatedStudies(testTypeVO.getRelatedStudies());
+        
+        // 处理FAQ字段 - 将List<Map>转换为JSON字符串
+        if (testTypeVO.getFaq() != null && !testTypeVO.getFaq().isEmpty()) {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                String faqJson = objectMapper.writeValueAsString(testTypeVO.getFaq());
+                testType.setFaq(faqJson);
+            } catch (Exception e) {
+                log.error("Failed to serialize FAQ to JSON", e);
+                // 发生错误时设置为空字符串或保持原值
+                if (testType.getFaq() == null) {
+                    testType.setFaq("[]");
+                }
+            }
+        } else {
+            testType.setFaq("[]"); // 设置为空JSON数组
+        }
         
         // 保存或更新
         if (testTypeVO.getId() != null && !testTypeVO.getId().isEmpty()) {

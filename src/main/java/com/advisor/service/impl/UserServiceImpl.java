@@ -6,6 +6,7 @@ import com.advisor.entity.base.VerificationCode;
 import com.advisor.mapper.base.UserMapper;
 import com.advisor.mapper.base.VerificationCodeMapper;
 import com.advisor.service.UserService;
+import com.advisor.service.userbehavior.UserLoginLogService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -25,7 +26,9 @@ import java.time.LocalDateTime;
 import java.util.Date;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 
-import java.util.Date;
+/**
+ * 用户服务实现类
+ */
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
@@ -40,6 +43,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private UserLoginLogService userLoginLogService;
 
     @Value("${spring.mail.username}")
     private String from;
@@ -124,6 +130,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public User login(String username, String password) {
+        // 只使用IP地址为null的登录方法
+        return login(username, password, null);
+    }
+    
+    @Override
+    public User login(String username, String password, String ipAddress) {
         System.out.println("尝试登录用户: " + username);
         
         // 1. 查询用户
@@ -133,6 +145,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         
         if (user == null) {
             System.out.println("用户不存在: " + username);
+            // 记录登录失败日志
+            if (username != null) {
+                userLoginLogService.recordLoginFailed(null, ipAddress, "用户不存在");
+            }
             throw new RuntimeException("用户名或密码错误");
         }
 
@@ -145,12 +161,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             System.out.println("密码匹配结果: " + matches);
             
             if (!matches) {
+                // 记录登录失败日志
+                userLoginLogService.recordLoginFailed(user.getId(), ipAddress, "密码错误");
                 throw new RuntimeException("用户名或密码错误");
             }
         } catch (Exception e) {
             System.out.println("密码验证错误: " + e.getMessage());
             System.out.println("输入密码: " + password);
             System.out.println("存储密码: " + user.getPassword());
+            // 记录登录失败日志
+            userLoginLogService.recordLoginFailed(user.getId(), ipAddress, "密码验证异常: " + e.getMessage());
             throw new RuntimeException("用户名或密码错误");
         }
 
@@ -161,6 +181,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 4. 生成JWT令牌
         String token = generateToken(user.getId(),username);
         user.setToken(token);
+        
+        // 记录登录成功日志
+        userLoginLogService.recordLoginSuccess(user.getId(), ipAddress);
         
         // 不返回密码
         user.setPassword(null);

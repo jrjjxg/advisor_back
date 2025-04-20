@@ -50,26 +50,5 @@ public class UserUtil {
         }
         return null;
     }
-    
-    /**
-     * 判断是否已登录
-     *
-     * @return 是否已登录
-     */
-    public static boolean isAuthenticated() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication != null && authentication.isAuthenticated() && 
-               !"anonymousUser".equals(authentication.getPrincipal());
-    }
-    
-    /**
-     * 判断当前用户是否为指定用户
-     *
-     * @param userId 用户ID
-     * @return 是否为当前用户
-     */
-    public static boolean isCurrentUser(String userId) {
-        String currentUserId = getCurrentUserId();
-        return currentUserId != null && currentUserId.equals(userId);
-    }
 }
+    

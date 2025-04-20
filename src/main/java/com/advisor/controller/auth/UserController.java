@@ -10,6 +10,8 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import javax.servlet.http.HttpServletRequest;
+import org.springframework.util.StringUtils;
 
 @RestController
 @RequestMapping("/api/user")
@@ -39,9 +41,17 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public Result<User> login(@RequestBody LoginRequest loginRequest) {
+    public Result<User> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
         try {
-            User user = userService.login(loginRequest.getUsername(), loginRequest.getPassword());
+            // 获取客户端IP地址
+            String ipAddress = getClientIp(request);
+            
+            // 调用不需要设备信息的登录方法
+            User user = userService.login(
+                loginRequest.getUsername(), 
+                loginRequest.getPassword(),
+                ipAddress
+            );
             return Result.success(user);
         } catch (Exception e) {
             return Result.fail(500, e.getMessage());
@@ -88,8 +98,6 @@ public class UserController {
         
         UserVO userVO = new UserVO();
         BeanUtils.copyProperties(user, userVO);
-        // 设置其他需要的字段，如关注数、粉丝数等
-        
         return Result.success(userVO);
     }
     
@@ -184,5 +192,32 @@ public class UserController {
         } catch (Exception e) {
             return Result.fail(500, e.getMessage());
         }
+    }
+
+    /**
+     * 获取客户端真实IP地址
+     */
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("HTTP_CLIENT_IP");
+        }
+        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
+        }
+        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        // 对于通过多个代理的情况，第一个IP为客户端真实IP，多个IP按照','分割
+        if (ip != null && ip.indexOf(",") > 0) {
+            ip = ip.substring(0, ip.indexOf(","));
+        }
+        return ip;
     }
 }
