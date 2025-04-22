@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 帖子标签Mapper
@@ -19,4 +20,10 @@ public interface PostTagMapper extends BaseMapper<PostTag> {
      */
     @Select("SELECT tag_name FROM post_tag WHERE post_id = #{postId}")
     List<String> findTagsByPostId(@Param("postId") String postId);
+    
+    /**
+     * 获取标签及其帖子数量
+     */
+    @Select("SELECT tag_name as tagName, COUNT(post_id) as count FROM post_tag GROUP BY tag_name")
+    List<Map<String, Object>> getTagCount();
 }

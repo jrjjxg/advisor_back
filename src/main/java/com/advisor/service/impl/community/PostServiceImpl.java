@@ -145,6 +145,32 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
             queryWrapper.like(Post::getContent, request.getKeyword());
         }
         
+        // 标签筛选
+        if (request.getTags() != null && !request.getTags().isEmpty()) {
+            // 查询包含指定标签的帖子ID列表
+            List<String> postIds = new ArrayList<>();
+            for (String tagName : request.getTags()) {
+                LambdaQueryWrapper<PostTag> tagQueryWrapper = new LambdaQueryWrapper<>();
+                tagQueryWrapper.eq(PostTag::getTagName, tagName);
+                List<PostTag> postTags = postTagMapper.selectList(tagQueryWrapper);
+                List<String> tagPostIds = postTags.stream().map(PostTag::getPostId).collect(Collectors.toList());
+                
+                if (postIds.isEmpty()) {
+                    postIds.addAll(tagPostIds);
+                } else {
+                    // 取交集，找出同时包含所有标签的帖子
+                    postIds.retainAll(tagPostIds);
+                }
+            }
+            
+            if (postIds.isEmpty()) {
+                // 没有符合条件的帖子，返回空结果
+                return new Page<>(request.getPageNum(), request.getPageSize());
+            }
+            
+            queryWrapper.in(Post::getId, postIds);
+        }
+        
         // 排序方式
         if ("hot".equals(request.getOrderBy())) {
             queryWrapper.orderByDesc(Post::getLikeCount, Post::getCommentCount, Post::getCreateTime);

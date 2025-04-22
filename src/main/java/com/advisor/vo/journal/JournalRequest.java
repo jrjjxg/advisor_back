@@ -33,6 +33,11 @@ public class JournalRequest {
     private String relatedMoodId;
     
     /**
+     * 日记背景主题
+     */
+    private String theme;
+    
+    /**
      * 图片URL列表，JSON字符串格式
      */
     private String imageUrls;

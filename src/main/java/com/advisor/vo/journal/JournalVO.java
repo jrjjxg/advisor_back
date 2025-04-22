@@ -18,6 +18,9 @@ public class JournalVO {
     private String relatedMoodId;
     private Object relatedMood; // 可以是一个适当的心情VO类型
     
+    // 添加主题字段
+    private String theme;       // 日记背景主题
+    
     // 确保包含这些字段
     private String imageUrls;   // 图片URL列表，JSON数组格式
     private Integer imageCount; // 图片数量

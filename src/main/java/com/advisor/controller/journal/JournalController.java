@@ -74,6 +74,7 @@ public class JournalController {
         // 确保图片URL和数量被正确复制
         vo.setImageUrls(journal.getImageUrls());
         vo.setImageCount(journal.getImageCount());
+        vo.setTheme(journal.getTheme());
         vo.setAiCompanionResponse(journal.getAiCompanionResponse());
         
         return Result.success(vo);

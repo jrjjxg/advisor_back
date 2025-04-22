@@ -74,6 +74,9 @@ public class JournalServiceImpl implements JournalService {
         journal.setRelatedMoodId(journalRequest.getRelatedMoodId());
         journal.setUpdateTime(LocalDateTime.now());
         
+        // 设置主题
+        journal.setTheme(journalRequest.getTheme());
+        
         // 设置新增的字段
         journal.setImageUrls(journalRequest.getImageUrls());
         journal.setImageCount(journalRequest.getImageCount());

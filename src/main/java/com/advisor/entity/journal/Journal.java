@@ -24,6 +24,7 @@ public class Journal {
     private Integer isPrivate;  // 是否私密
     private String relatedMoodId; // 关联的心情记录ID
     // 新增字段
+    private String theme;       // 日记背景主题
     private String imageUrls;   // 图片URL列表，JSON数组格式
     private Integer imageCount; // 图片数量
     private String emotionType; // 情感类型

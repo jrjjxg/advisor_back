@@ -16,7 +16,7 @@ public class PostCreateRequest {
      * 帖子内容
      */
     @NotBlank(message = "内容不能为空")
-    @Size(max = 2000, message = "内容长度不能超过2000字")
+    @Size(max = 10000, message = "内容长度不能超过10000字")
     private String content;
     
     /**
