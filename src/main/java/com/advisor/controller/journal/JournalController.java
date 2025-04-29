@@ -7,8 +7,6 @@ import com.advisor.util.UserUtil;
 import com.advisor.vo.journal.JournalRequest;
 import com.advisor.vo.journal.JournalVO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -25,7 +23,6 @@ import java.util.Map;
 @RequestMapping("/api/journal")
 public class JournalController {
 
-    private static final Logger logger = LoggerFactory.getLogger(JournalController.class);
 
     @Autowired
     private JournalService journalService;
@@ -35,7 +32,6 @@ public class JournalController {
      */
     @PostMapping("/save")
     public Result<String> saveOrUpdateJournal(@RequestBody JournalRequest journalRequest) {
-        logger.info("保存或更新日记: {}", journalRequest);
         String userId = UserUtil.getCurrentUserId();
         String journalId = journalService.saveJournal(journalRequest, userId);
         return Result.success(journalId);
@@ -112,35 +108,6 @@ public class JournalController {
         return Result.success(dates);
     }
 
-    /**
-     * 关联心情
-     */
-    @PutMapping("/link-mood/{journalId}/{moodId}")
-    public Result<Boolean> linkMoodRecord(@PathVariable String journalId, @PathVariable String moodId) {
-        String userId = UserUtil.getCurrentUserId();
-        boolean success = journalService.linkMoodRecord(journalId, moodId, userId);
-        return Result.success(success);
-    }
-
-    /**
-     * 解除关联
-     */
-    @PutMapping("/unlink-mood/{journalId}")
-    public Result<Boolean> unlinkMoodRecord(@PathVariable String journalId) {
-        String userId = UserUtil.getCurrentUserId();
-        boolean success = journalService.unlinkMoodRecord(journalId, userId);
-        return Result.success(success);
-    }
-
-    /**
-     * 根据心情ID获取日记
-     */
-    @GetMapping("/by-mood/{moodId}")
-    public Result<List<JournalVO>> getJournalsByMoodId(@PathVariable String moodId) {
-        String userId = UserUtil.getCurrentUserId();
-        List<JournalVO> journals = journalService.getJournalsByMoodId(moodId, userId);
-        return Result.success(journals);
-    }
 
     /**
      * 保存AI伙伴的回复

@@ -1,17 +1,15 @@
 package com.advisor.service.impl;
 
 import cn.hutool.core.util.RandomUtil;
+import com.advisor.dto.UserQueryDTO;
 import com.advisor.entity.base.User;
 import com.advisor.entity.base.VerificationCode;
 import com.advisor.mapper.base.UserMapper;
 import com.advisor.mapper.base.VerificationCodeMapper;
 import com.advisor.service.UserService;
 import com.advisor.service.userbehavior.UserLoginLogService;
+import com.advisor.util.JwtUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -19,12 +17,16 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.nio.charset.StandardCharsets;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import java.time.LocalDateTime;
-import java.util.Date;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.advisor.vo.UserManagementVO;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.StringUtils;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.beans.BeanUtils;
+import java.util.Collections;
 
 /**
  * 用户服务实现类
@@ -47,23 +49,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Autowired
     private UserLoginLogService userLoginLogService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     @Value("${spring.mail.username}")
     private String from;
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
-
     @Override
-    public void sendVerificationCode(String email) {
+    public boolean sendVerificationCode(String email) {
         // 1. 检查邮箱是否已被注册
         User existingUser = userMapper.selectOne(
             new LambdaQueryWrapper<User>().eq(User::getEmail, email)
         );
         if (existingUser != null) {
-            throw new RuntimeException("邮箱已被注册");
+            return false;
         }
 
         // 2. 生成验证码
@@ -83,12 +82,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             MimeMessageHelper helper = new MimeMessageHelper(message, true);
             helper.setFrom(from);
             helper.setTo(email);
-            helper.setSubject("注册验证码");
+            helper.setSubject("注册Uniheart");
             helper.setText("您的验证码是：" + code + "，有效期为5分钟。", true);
             mailSender.send(message);
         } catch (MessagingException e) {
             throw new RuntimeException("邮件发送失败", e);
         }
+        return true;
     }
 
     @Override
@@ -117,6 +117,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 3. 标记验证码为已使用
         verificationCode.setUsed(true);
         verificationCodeMapper.updateById(verificationCode);
+
+        // 新增: 校验密码强度
+        if (!isValidPassword(password)) {
+            throw new RuntimeException("密码不符合要求 (至少8位，包含大小写字母和数字)");
+        }
 
         // 4. 创建用户
         User newUser = new User();
@@ -152,6 +157,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new RuntimeException("用户名或密码错误");
         }
 
+        // 新增：检查用户状态
+        if (user.getStatus() == 0) {
+            System.out.println("用户账号已被禁用: " + username);
+            // 记录登录失败日志
+            userLoginLogService.recordLoginFailed(user.getId(), ipAddress, "账号已被禁用");
+            throw new RuntimeException("账号已被禁用，请遵守社区规范。如有疑问，请咨询管理员2902756263@qq.com");
+        }
+
         System.out.println("找到用户: " + username);
         System.out.println("存储的密码: " + user.getPassword());
         
@@ -178,8 +191,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         user.setLastLoginTime(LocalDateTime.now());
         userMapper.updateById(user);
 
-        // 4. 生成JWT令牌
-        String token = generateToken(user.getId(),username);
+        // 4. 使用 JwtUtil 生成 JWT 令牌，包含 ROLE_USER 角色
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), Collections.singletonList("ROLE_USER"));
         user.setToken(token);
         
         // 记录登录成功日志
@@ -194,21 +207,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public User getUserByToken(String token) {
+        String actualToken = token.startsWith("Bearer ") ? token.substring(7) : token;
+        System.out.println("开始解析token (getUserByToken): " + actualToken.substring(0, Math.min(actualToken.length(), 20)) + "...");
+
         try {
-            System.out.println("开始解析token: " + token.substring(0, Math.min(token.length(), 20)) + "...");
-            
-            // 使用新的 API
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)))
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-            
-            System.out.println("Token解析成功，claims: " + claims);
-            
-            String userId = claims.getSubject();
+            // 使用 JwtUtil 从 Token 获取 userId
+            String userId = jwtUtil.getUserIdFromToken(actualToken);
             System.out.println("从token中获取的userId: " + userId);
-            
+
+            if (userId == null) {
+                System.out.println("无法从Token中解析出userId");
+                return null; // Token 无效或解析失败
+            }
+
             User user = userMapper.selectById(userId);
             System.out.println("根据userId查询结果: " + (user == null ? "null" : user.getUsername()));
             
@@ -217,25 +228,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             return user;
         } catch (Exception e) {
-            System.out.println("解析Token时发生异常: " + e.getClass().getName() + ": " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            // JwtUtil 内部已经打印了错误日志
+            System.out.println("getUserByToken 发生异常: " + e.getMessage());
+            // e.printStackTrace(); // JwtUtil 已处理日志，这里可以选择不打印
+            return null; // 明确返回 null 表示失败
         }
     }
 
-    // 生成 Token 方法
-    public String generateToken(String userId, String username) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpiration);
-        
-        return Jwts.builder()
-                .setSubject(userId)
-                .claim("username", username)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS512)
-                .compact();
-    }
     @Override
     public User getUserByUsername(String username) {
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
@@ -311,5 +310,109 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         
         return hasUpper && hasLower && hasDigit;
+    }
+
+    @Override
+    public IPage<UserManagementVO> listUsersForAdmin(UserQueryDTO queryDTO) {
+        Page<User> page = new Page<>(queryDTO.getPage(), queryDTO.getSize());
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+
+        // 添加筛选条件
+        if (StringUtils.isNotBlank(queryDTO.getUsername())) {
+            wrapper.like(User::getUsername, queryDTO.getUsername());
+        }
+        if (StringUtils.isNotBlank(queryDTO.getEmail())) {
+            wrapper.like(User::getEmail, queryDTO.getEmail());
+        }
+        if (queryDTO.getStatus() != null) {
+            wrapper.eq(User::getStatus, queryDTO.getStatus());
+        }
+
+        // 修改后的排序逻辑
+        boolean isAsc = "asc".equalsIgnoreCase(queryDTO.getSortOrder());
+        String sortBy = queryDTO.getSortBy();
+
+        if (StringUtils.isNotBlank(sortBy)) {
+            // 根据前端传入的字段名决定调用哪个 orderBy 方法
+            if ("username".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getUsername);
+            } else if ("nickname".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getNickname);
+            } else if ("email".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getEmail);
+            } else if ("status".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getStatus);
+            } else if ("createTime".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getCreateTime);
+            } else if ("lastLoginTime".equalsIgnoreCase(sortBy)) {
+                wrapper.orderBy(true, isAsc, User::getLastLoginTime);
+            } else {
+                // 如果传入的 sortBy 不合法或未匹配，默认按创建时间降序
+                wrapper.orderByDesc(User::getCreateTime);
+            }
+        } else {
+            // 如果没有传入 sortBy，默认按创建时间降序
+            wrapper.orderByDesc(User::getCreateTime);
+        }
+        
+        // 执行查询
+        IPage<User> userPage = this.page(page, wrapper);
+
+        // 转换结果为 UserManagementVO
+        IPage<UserManagementVO> voPage = userPage.convert(user -> {
+            UserManagementVO vo = new UserManagementVO();
+            BeanUtils.copyProperties(user, vo);
+            // 注意：这里返回给管理员的列表信息，是否需要包含 Token？通常不需要。
+            // 如果需要，可以在这里设置 vo.setToken(jwtUtil.generateToken(...)); 但一般不推荐
+            return vo;
+        });
+
+        return voPage;
+    }
+
+    @Override
+    public void updateUserStatus(String userId, Integer status) {
+        User user = this.getById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        // 校验状态值是否合法 (Controller 层已有校验，这里可以省略或再次校验)
+        if (status == null || (status != 0 && status != 1)) {
+            throw new IllegalArgumentException("无效的用户状态值");
+        }
+        user.setStatus(status);
+        this.updateById(user);
+    }
+
+    @Override
+    public void deleteUser(String userId) {
+        // 可以根据业务需求选择逻辑删除或物理删除
+        // 逻辑删除示例: (需要 User 实体有 isDeleted 字段和 @TableLogic 注解)
+        // User user = this.getById(userId);
+        // if (user != null) {
+        //     this.removeById(userId);
+        // }
+
+        // 物理删除示例:
+        boolean removed = this.removeById(userId);
+        if (!removed) {
+            // 可以选择抛出异常或记录日志，表明用户可能不存在
+             System.out.println("尝试删除用户失败，用户可能不存在: " + userId);
+            // throw new RuntimeException("删除用户失败，用户不存在");
+        }
+    }
+
+    @Override
+    public boolean checkUsernameExists(String username) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getUsername, username);
+        return userMapper.selectCount(queryWrapper) > 0;
+    }
+
+    @Override
+    public boolean checkEmailExists(String email) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(User::getEmail, email);
+        return userMapper.selectCount(queryWrapper) > 0;
     }
 }

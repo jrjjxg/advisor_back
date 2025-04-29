@@ -1,7 +1,7 @@
 package com.advisor.service.impl.community;
 
-import com.advisor.dto.PostCreateRequest;
-import com.advisor.dto.PostQueryRequest;
+import com.advisor.dto.community.PostCreateRequest;
+import com.advisor.dto.community.PostQueryRequest;
 import com.advisor.entity.base.User;
 import com.advisor.entity.community.Post;
 import com.advisor.entity.community.PostTag;
@@ -65,10 +65,6 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         Post post = new Post();
         post.setUserId(userId);
         post.setContent(request.getContent());
-        post.setLocation(request.getLocation());
-        post.setMoodRecordId(request.getMoodRecordId());
-        post.setTestResultId(request.getTestResultId());
-        post.setIsAnonymous(request.getIsAnonymous() != null ? request.getIsAnonymous() : 0);
         post.setViewCount(0);
         post.setLikeCount(0);
         post.setCommentCount(0);
@@ -76,29 +72,19 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         post.setCreateTime(LocalDateTime.now());
         post.setUpdateTime(LocalDateTime.now());
         
-        // 处理图片 - 确保存储的是完整的七牛云URL
         if (request.getImages() != null && !request.getImages().isEmpty()) {
-            log.info("帖子包含{}张图片", request.getImages().size());
-            // 验证所有图片URL是否为七牛云URL
             List<String> validImageUrls = request.getImages().stream()
-                    .filter(url -> url != null && !url.isEmpty())
-                    .map(url -> {
-                        // 如果URL已经是完整的七牛云URL，则直接使用
-                        if (url.startsWith("http://") || url.startsWith("https://")) {
-                            log.info("图片URL已是完整URL: {}", url);
-                            return url;
-                        } 
-                        // 否则，可能是相对路径，需要转换为完整URL
-                        log.warn("图片URL不是完整URL: {}", url);
-                        return url;
-                    })
+                    .filter(url -> url != null && !url.trim().isEmpty())
                     .collect(Collectors.toList());
-            
-            String imageStr = String.join(",", validImageUrls);
-            log.info("最终保存的图片URL字符串: {}", imageStr);
-            post.setImages(imageStr);
+
+            if (!validImageUrls.isEmpty()) {
+                String imageStr = String.join(",", validImageUrls);
+                post.setImages(imageStr);
+            } else {
+                post.setImages(null); 
+            }
         } else {
-            log.info("帖子不包含图片");
+            post.setImages(null); 
         }
         
         // 保存帖子
@@ -249,70 +235,7 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         userMapper.updatePostCount(userId, -1);
     }
     
-    @Override
-    @Transactional
-    public String createPostFromMoodRecord(Long moodRecordId, String content, Integer isAnonymous, String userId) {
-        // 查询情绪记录是否存在
-        MoodRecord moodRecord = moodRecordMapper.selectById(moodRecordId);
-        if (moodRecord == null) {
-            throw new RuntimeException("情绪记录不存在");
-        }
-        
-        // 检查是否是当前用户的情绪记录
-        if (!moodRecord.getUserId().equals(userId)) {
-            throw new RuntimeException("无权操作他人的情绪记录");
-        }
-        
-        // 创建帖子请求
-        PostCreateRequest request = new PostCreateRequest();
-        request.setContent(content);
-        
-        // 设置情绪标签
-        List<String> tags = new ArrayList<>();
-        tags.add(moodRecord.getEmotionType()); // 使用emotionType作为情绪名称标签
-        
-        // 如果有备注，也添加为标签
-        if (moodRecord.getNote() != null && !moodRecord.getNote().isEmpty()) {
-            tags.add(moodRecord.getNote());
-        }
-        
-        request.setTags(tags);
-        request.setMoodRecordId(moodRecordId);
-        request.setIsAnonymous(isAnonymous);
-        
-        // 创建帖子
-        return createPost(request, userId);
-    }
-    
-    @Override
-    @Transactional
-    public String createPostFromTestResult(String testResultId, String content, Integer isAnonymous, String userId) {
-        // 查询测试结果是否存在
-        TestResult testResult = testResultMapper.selectById(testResultId);
-        if (testResult == null) {
-            throw new RuntimeException("测试结果不存在");
-        }
-        
-        // 检查是否是当前用户的测试结果
-        if (!testResult.getUserId().equals(userId)) {
-            throw new RuntimeException("无权操作他人的测试结果");
-        }
-        
-        // 创建帖子请求
-        PostCreateRequest request = new PostCreateRequest();
-        request.setContent(content);
-        
-        // 设置测试相关标签
-        List<String> tags = new ArrayList<>();
-        tags.add(testResult.getTestTypeId()); // 添加测试名称作为标签
-        
-        request.setTags(tags);
-        request.setTestResultId(testResultId);
-        request.setIsAnonymous(isAnonymous);
-        
-        // 创建帖子
-        return createPost(request, userId);
-    }
+
     
     @Override
     public void incrementViewCount(String postId) {

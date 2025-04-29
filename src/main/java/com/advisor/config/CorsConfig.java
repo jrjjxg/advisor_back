@@ -10,24 +10,18 @@ import java.util.Arrays;
 
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
-//    @Override
-//    public void addCorsMappings(CorsRegistry registry) {
-//        registry.addMapping("/**")
-//                .allowedOrigins("http://localhost:5173")  // Vue开发服务器地址
-//                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-//                .allowedHeaders("*")
-//                .exposedHeaders("Authorization")  // 暴露Authorization头
-//                .allowCredentials(true)
-//                .maxAge(3600);  // 预检请求的有效期，单位为秒
-//    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // 允许的源
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "http://localhost:3000","http://localhost:5000"));
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://192.168.78.103:5173",
+            "http://localhost:3000",
+            "http://localhost:5000"
+        ));
         // 允许的方法
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
         // 允许的头信息
         configuration.setAllowedHeaders(Arrays.asList(
             "Authorization", 

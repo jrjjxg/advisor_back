@@ -6,18 +6,46 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
 import java.util.List;
 
+/**
+ * 创建帖子请求
+ */
 @Data
 public class PostCreateRequest {
     
-    private String title;
-    
+    /**
+     * 帖子内容
+     */
     @NotBlank(message = "内容不能为空")
-    @Size(max = 2000, message = "内容长度不能超过2000字")
+    @Size(max = 10000, message = "内容长度不能超过10000字")
     private String content;
     
-    private List<String> tags;
-    
+    /**
+     * 图片URL列表
+     */
     private List<String> images;
     
-    private Integer isAnonymous = 0;
+    /**
+     * 位置信息
+     */
+    private String location;
+    
+    /**
+     * 标签列表
+     */
+    private List<String> tags;
+    
+    /**
+     * 情绪记录ID
+     */
+    private Long moodRecordId;
+    
+    /**
+     * 测试结果ID
+     */
+    private String testResultId;
+    
+    /**
+     * 是否匿名：0-否，1-是
+     */
+    private Integer isAnonymous;
 }

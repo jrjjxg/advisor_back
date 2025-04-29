@@ -1,4 +1,4 @@
-package com.advisor.dto;
+package com.advisor.dto.community;
 
 import lombok.Data;
 

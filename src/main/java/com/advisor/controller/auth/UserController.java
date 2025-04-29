@@ -12,6 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import javax.servlet.http.HttpServletRequest;
 import org.springframework.util.StringUtils;
+import com.advisor.service.community.FollowService;
+import javax.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/user")
@@ -21,6 +26,9 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private FollowService followService;
+
     private final FileService fileService;
 
     @Autowired
@@ -28,11 +36,15 @@ public class UserController {
         this.fileService = fileService;
     }
     
-    @PostMapping("/register/send-code")
-    public Result<?> sendVerificationCode(@RequestBody EmailRequest emailRequest) {
-        userService.sendVerificationCode(emailRequest.getEmail());
-        return Result.success(null);
-    }
+        @PostMapping("/register/send-code")
+        public Result<?> sendVerificationCode(@RequestBody EmailRequest emailRequest) {
+            boolean sentSuccessfully = userService.sendVerificationCode(emailRequest.getEmail());
+            if (sentSuccessfully) {
+                return Result.success(null);
+            } else {
+                return Result.fail(500, "验证码发送失败，请稍后重试");
+            }
+        }
 
     @PostMapping("/register")
     public Result<?> register(@RequestBody RegisterRequest request) {
@@ -41,20 +53,24 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public Result<User> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+    public Result<User> login(@RequestBody LoginRequest loginRequest, HttpServletRequest request, HttpServletResponse response) {
         try {
-            // 获取客户端IP地址
-            String ipAddress = getClientIp(request);
-            
-            // 调用不需要设备信息的登录方法
             User user = userService.login(
                 loginRequest.getUsername(), 
-                loginRequest.getPassword(),
-                ipAddress
+                loginRequest.getPassword()
             );
             return Result.success(user);
-        } catch (Exception e) {
-            return Result.fail(500, e.getMessage());
+        } catch (RuntimeException e) {
+            if ("账号已被禁用，请遵守社区规范。如有疑问，请咨询管理员2902756263@qq.com".equals(e.getMessage())) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                return Result.fail(HttpStatus.FORBIDDEN.value(), e.getMessage());
+            } else if ("用户名或密码错误".equals(e.getMessage())) {
+                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                return Result.fail(HttpStatus.UNAUTHORIZED.value(), "用户名或密码错误");
+            } else {
+                response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+                return Result.fail(HttpStatus.INTERNAL_SERVER_ERROR.value(), "登录时发生内部错误");
+            }
         }
     }
 
@@ -65,24 +81,24 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public Result<User> getCurrentUser(@RequestHeader("Authorization") String token) {
-        System.out.println("接收到的完整token: " + token);
-        
-        String processedToken = token.replace("Bearer ", "");
-        System.out.println("处理后的token: " + processedToken);
-        
+    public Result<User> getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            return Result.fail(401, "未登录或Token无效");
+        }
+
+        String username = authentication.getName();
+
         try {
-            User user = userService.getUserByToken(processedToken);
-            System.out.println("getUserByToken返回结果: " + (user == null ? "null" : user.getUsername()));
-            
+            User user = userService.getUserByUsername(username);
+
             if (user == null) {
-                return Result.fail(401, "未登录");
+                return Result.fail(404, "用户不存在");
             }
+            user.setPassword(null);
             return Result.success(user);
         } catch (Exception e) {
-            System.out.println("getUserByToken发生异常: " + e.getMessage());
-            e.printStackTrace();
-            return Result.fail(401, "Token处理异常: " + e.getMessage());
+            return Result.fail(500, "获取用户信息失败: " + e.getMessage());
         }
     }
     
@@ -98,6 +114,20 @@ public class UserController {
         
         UserVO userVO = new UserVO();
         BeanUtils.copyProperties(user, userVO);
+        
+        // 手动映射名称不同的字段
+        userVO.setFollowingCount(user.getFollowCount()); // 从 User 实体的 followCount 映射
+        userVO.setFollowerCount(user.getFansCount());   // 从 User 实体的 fansCount 映射
+
+        // 检查当前登录用户是否关注了该用户 (保留这部分逻辑)
+        String currentUserId = UserUtil.getCurrentUserId();
+        if (currentUserId != null && !currentUserId.equals(userId)) {
+            boolean isFollowed = followService.checkFollowed(userId, currentUserId);
+            userVO.setIsFollowed(isFollowed);
+        } else {
+            userVO.setIsFollowed(false); // 自己不能关注自己，或者未登录
+        }
+        
         return Result.success(userVO);
     }
     
@@ -151,9 +181,28 @@ public class UserController {
      * 检查用户名是否可用
      */
     @GetMapping("/check-username")
-    public Result<Boolean> checkUsername(@RequestParam String username) {
-        boolean available = userService.isUsernameAvailable(username);
-        return Result.success(available);
+    public Result<?> checkUsername(@RequestParam String username, HttpServletResponse response) {
+        boolean exists = userService.checkUsernameExists(username);
+        if (exists) {
+            response.setStatus(HttpStatus.CONFLICT.value());
+            return Result.fail(HttpStatus.CONFLICT.value(), "用户名已存在");
+        } else {
+            return Result.success(null);
+        }
+    }
+
+    /**
+     * 新增：检查邮箱是否已被注册
+     */
+    @GetMapping("/check-email")
+    public Result<?> checkEmail(@RequestParam String email, HttpServletResponse response) {
+        boolean exists = userService.checkEmailExists(email);
+        if (exists) {
+            response.setStatus(HttpStatus.CONFLICT.value());
+            return Result.fail(HttpStatus.CONFLICT.value(), "邮箱已被注册");
+        } else {
+            return Result.success(null);
+        }
     }
     
     @PostMapping("/password")
@@ -184,40 +233,6 @@ public class UserController {
         return Result.success(user.getId());
     }
 
-    @PostMapping("/upload")
-    public Result<String> uploadFile(@RequestParam("file") MultipartFile file) {
-        try {
-            String fileUrl = fileService.uploadFile(file);
-            return Result.success(fileUrl);
-        } catch (Exception e) {
-            return Result.fail(500, e.getMessage());
-        }
-    }
 
-    /**
-     * 获取客户端真实IP地址
-     */
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (!StringUtils.hasText(ip) || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        // 对于通过多个代理的情况，第一个IP为客户端真实IP，多个IP按照','分割
-        if (ip != null && ip.indexOf(",") > 0) {
-            ip = ip.substring(0, ip.indexOf(","));
-        }
-        return ip;
-    }
+
 }

@@ -8,4 +8,5 @@ public interface AdminUserService {
     void register(String username, String password, String email, String code);
     AdminUser login(String username, String password);
     AdminUser getCurrentUser();
+    AdminUser findByUsername(String username);
 }

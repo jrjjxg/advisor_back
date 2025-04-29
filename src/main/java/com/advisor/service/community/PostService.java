@@ -1,7 +1,7 @@
 package com.advisor.service.community;
 
-import com.advisor.dto.PostCreateRequest;
-import com.advisor.dto.PostQueryRequest;
+import com.advisor.dto.community.PostCreateRequest;
+import com.advisor.dto.community.PostQueryRequest;
 import com.advisor.vo.community.PostVO;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
@@ -66,28 +66,7 @@ public interface PostService {
      */
     void deletePost(String postId, String userId);
     
-    /**
-     * 从情绪记录创建帖子
-     *
-     * @param moodRecordId 情绪记录ID
-     * @param content      附加内容
-     * @param isAnonymous  是否匿名
-     * @param userId       用户ID
-     * @return 帖子ID
-     */
-    String createPostFromMoodRecord(Long moodRecordId, String content, Integer isAnonymous, String userId);
-    
-    /**
-     * 从测试结果创建帖子
-     *
-     * @param testResultId 测试结果ID
-     * @param content      附加内容
-     * @param isAnonymous  是否匿名
-     * @param userId       用户ID
-     * @return 帖子ID
-     */
-    String createPostFromTestResult(String testResultId, String content, Integer isAnonymous, String userId);
-    
+
     /**
      * 增加帖子浏览量
      *

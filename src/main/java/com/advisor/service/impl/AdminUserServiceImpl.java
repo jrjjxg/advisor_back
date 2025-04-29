@@ -141,8 +141,23 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDetails) {
-            return adminUserMapper.selectOne(new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getUsername, ((UserDetails) principal).getUsername()));
+            return findByUsername(((UserDetails) principal).getUsername());
         }
         return null;
+    }
+
+    /**
+     * 根据用户名查找管理员用户
+     * @param username 用户名
+     * @return AdminUser 或 null
+     */
+    @Override
+    public AdminUser findByUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        return adminUserMapper.selectOne(
+            new LambdaQueryWrapper<AdminUser>().eq(AdminUser::getUsername, username)
+        );
     }
 }

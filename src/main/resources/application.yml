@@ -23,7 +23,7 @@ spring:
       matching-strategy: ant_path_matcher
     cors:
       allowed-origins:
-        - http://localhost:5173
+        - http://192.168.78.103:5173
         - file://
       allowed-methods: GET,POST,PUT,DELETE,OPTIONS
       allowed-headers: "*"

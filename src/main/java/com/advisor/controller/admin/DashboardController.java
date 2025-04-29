@@ -1,6 +1,7 @@
 package com.advisor.controller.admin;
 
 import com.advisor.common.Result;
+import com.advisor.entity.test.TestType;
 import com.advisor.service.UserService;
 import com.advisor.service.driftbottle.DriftBottleService;
 import com.advisor.service.media.MediaCategoryService;
@@ -8,6 +9,7 @@ import com.advisor.service.media.MediaResourceService;
 import com.advisor.service.test.TestCategoryService;
 import com.advisor.service.test.TestScoreLevelService;
 import com.advisor.service.test.TestService;
+import com.advisor.vo.test.TestTypeVO;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
@@ -74,24 +76,19 @@ public class DashboardController {
             List<?> testCategories = testCategoryService.getAllCategories();
             stats.put("testCategoryCount", testCategories != null ? testCategories.size() : 0);
             
-            // 获取测试类型总数
-            List<?> testTypes = testService.getAllTestTypes();
+            // 获取测试类型总数，并明确类型为 TestTypeVO
+            List<TestTypeVO> testTypes = testService.getAllTestTypes();
             stats.put("testTypeCount", testTypes != null ? testTypes.size() : 0);
             
-            // 获取测试题目总数 - 需要计算所有测试类型下的题目总数
-            int questionCount = 0;
+            // 获取测试题目总数 - 直接累加 TestTypeVO 对象中的 questionCount 字段
+            int totalQuestionCount = 0;
             if (testTypes != null && !testTypes.isEmpty()) {
-                for (Object testType : testTypes) {
-                    // 由于我们不能直接访问 testType 的 id，我们使用反射或其他方式获取
-                    // 这里简化处理，实际实现可能需要调整
-                    String testTypeId = testType.toString(); // 这里简化处理
-                    List<?> questions = testService.getTestQuestions(testTypeId);
-                    if (questions != null) {
-                        questionCount += questions.size();
-                    }
-                }
+                totalQuestionCount = testTypes.stream()
+                                            .filter(vo -> vo != null && vo.getQuestionCount() != null)
+                                            .mapToInt(TestTypeVO::getQuestionCount)
+                                            .sum();
             }
-            stats.put("testQuestionCount", questionCount);
+            stats.put("testQuestionCount", totalQuestionCount);
             
             // 获取媒体分类总数
             Page<?> mediaCategories = mediaCategoryService.getCategoryList(1, 1000, null);

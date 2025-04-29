@@ -87,7 +87,6 @@ public class MoodController {
     @GetMapping("/emotion-types")
     public Result<List<String>> getAllEmotionTypes(
             @RequestHeader(value = "userId", required = false) String userId) {
-        // 情绪类型不需要用户ID，但为了接口一致性，仍然接收这个参数
         List<String> emotionTypes = moodService.getAllEmotionTypes();
         return Result.success(emotionTypes);
     }
@@ -95,7 +94,6 @@ public class MoodController {
     @GetMapping("/tags")
     public Result<List<String>> getAllTags(
             @RequestHeader(value = "userId", required = false) String userId) {
-        // 标签不需要用户ID，但为了接口一致性，仍然接收这个参数
         List<String> tags = moodService.getAllTags();
         return Result.success(tags);
     }

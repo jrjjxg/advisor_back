@@ -6,14 +6,15 @@ import com.advisor.dto.RegisterRequest;
 import com.advisor.dto.EmailRequest;
 import com.advisor.entity.base.AdminUser;
 import com.advisor.service.base.AdminUserService;
+import com.advisor.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -21,6 +22,9 @@ public class AdminUserController {
 
     @Autowired
     private AdminUserService adminUserService;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @PostMapping("/register/send-code")
     public Result<?> sendVerificationCode(@RequestBody EmailRequest emailRequest) {
@@ -35,31 +39,37 @@ public class AdminUserController {
     }
 
     @PostMapping("/login")
-    public Result<AdminUser> login(@RequestBody LoginRequest request) {
-        AdminUser user = adminUserService.login(request.getUsername(), request.getPassword());
-        // 将用户信息存入Session
-        SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken(user, null, AuthorityUtils.createAuthorityList("ROLE_ADMIN"))
-        );
-        return Result.success(user);
+    public Result<String> login(@RequestBody LoginRequest request) {
+        try {
+            AdminUser user = adminUserService.login(request.getUsername(), request.getPassword());
+            String token = jwtUtil.generateToken(user.getId(), user.getUsername(), Collections.singletonList("ROLE_ADMIN"));
+            return Result.success(token);
+        } catch (RuntimeException e) {
+            return Result.fail(401, e.getMessage());
+        }
     }
 
     @PostMapping("/logout")
     public Result<?> logout(HttpServletRequest request) {
-        // 清除Session
         HttpSession session = request.getSession(false);
         if (session != null) {
             session.invalidate();
         }
-        SecurityContextHolder.clearContext();
         return Result.success(null);
     }
 
     @GetMapping("/me")
     public Result<AdminUser> getCurrentUser() {
-        AdminUser user = adminUserService.getCurrentUser();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+             return Result.fail(401, "未登录或Token无效");
+        }
+
+        String username = authentication.getName();
+        AdminUser user = adminUserService.findByUsername(username);
+
         if (user == null) {
-            return Result.fail(401, "未登录");
+            return Result.fail(404, "管理员用户不存在");
         }
         return Result.success(user);
     }

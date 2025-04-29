@@ -1,8 +1,8 @@
 package com.advisor.controller.community;
 
 import com.advisor.common.Result;
-import com.advisor.dto.PostCreateRequest;
-import com.advisor.dto.PostQueryRequest;
+import com.advisor.dto.community.PostCreateRequest;
+import com.advisor.dto.community.PostQueryRequest;
 import com.advisor.service.community.PostService;
 import com.advisor.util.UserUtil;
 import com.advisor.vo.community.PostVO;
@@ -84,25 +84,6 @@ public class PostController {
         return Result.success();
     }
     
-    @ApiOperation("从情绪记录创建帖子")
-    @PostMapping("/create/mood/{moodRecordId}")
-    public Result<String> createPostFromMoodRecord(
-            @PathVariable Long moodRecordId,
-            @RequestParam(required = false) String content,
-            @RequestParam(defaultValue = "0") Integer isAnonymous) {
-        String userId = UserUtil.getCurrentUserId();
-        String postId = postService.createPostFromMoodRecord(moodRecordId, content, isAnonymous, userId);
-        return Result.success(postId);
-    }
-    
-    @ApiOperation("从测试结果创建帖子")
-    @PostMapping("/create/test/{testResultId}")
-    public Result<String> createPostFromTestResult(
-            @PathVariable String testResultId,
-            @RequestParam(required = false) String content,
-            @RequestParam(defaultValue = "0") Integer isAnonymous) {
-        String userId = UserUtil.getCurrentUserId();
-        String postId = postService.createPostFromTestResult(testResultId, content, isAnonymous, userId);
-        return Result.success(postId);
-    }
+
+
 }
